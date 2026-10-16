@@ -1,59 +1,69 @@
 """Cooking assistant and dynamic recipe synthesis service."""
-from typing import List
-from app.core.config import settings
-from app.core.errors import AIProviderError, ServiceNotConfiguredError
+from app.ai.recipe_generator import RecipeGenerator
+from app.core.errors import MediaValidationError
 from app.core.logging import logger
-from app.schemas.recipes import RecipeGenerationRequest, RecipeGenerationResponse
+from app.schemas.recipes import (
+    RecipeGenerationRequest,
+    RecipeGenerationResponse,
+    RecipeIngredientQuantity,
+    RecipeItem,
+)
 
 
 class RecipeService:
-    """Service orchestrating pantry-based recipe generation."""
+    """Service orchestrating pantry-based recipe generation and portion scaling."""
 
     @classmethod
     async def generate_recipes(cls, request: RecipeGenerationRequest) -> RecipeGenerationResponse:
+        """Validate input parameters and dispatch recipe synthesis to the configured AI provider."""
         clean_ingredients = [item.strip() for item in request.ingredients if item.strip()]
         if not clean_ingredients:
-            raise ServiceNotConfiguredError(
-                service_name="recipe_generation",
-                message="At least one non-empty pantry ingredient must be provided.",
+            raise MediaValidationError(
+                message="At least one pantry ingredient must be provided to generate recipes.",
+                details={"provided_ingredients": request.ingredients},
             )
 
+        # Sanitize and assign cleaned list
+        request.ingredients = clean_ingredients
+
         logger.info(
-            f"Received recipe generation request with {len(clean_ingredients)} ingredients. "
-            f"Dietary: {request.dietary_preferences}, Max time: {request.max_cook_time_minutes}m"
+            f"Processing recipe generation for {len(clean_ingredients)} ingredients. "
+            f"Dietary: {request.dietary_preference}, Servings: {request.servings}, Cuisine: {request.cuisine}"
         )
 
-        # Check AI provider configuration
-        if settings.AI_PROVIDER == "gemini":
-            if not settings.is_gemini_configured:
-                raise ServiceNotConfiguredError(
-                    service_name="recipe_generation",
-                    message="Google Cloud Gemini text model provider is not configured. "
-                            "Provide a valid GEMINI_API_KEY in backend/.env to synthesize live recipes.",
-                )
+        return await RecipeGenerator.generate_recipes(request)
 
-            try:
-                # Live Gemini text call with timeout
-                raise ServiceNotConfiguredError(
-                    service_name="recipe_generation",
-                    message="Gemini recipe prompt orchestrator is in active development for Phase 3."
-                )
-            except ServiceNotConfiguredError:
-                raise
-            except Exception as err:
-                logger.error(f"AI Provider error during recipe generation: {err}", exc_info=True)
-                raise AIProviderError(
-                    message=f"Google Gemini recipe generation call failed: {str(err)}",
-                    is_timeout=False,
-                )
+    @classmethod
+    def scale_recipe(cls, recipe: RecipeItem, target_servings: int) -> RecipeItem:
+        """Scale ingredient quantities of an existing recipe to the target serving count."""
+        if target_servings < 1 or target_servings > 24:
+            raise MediaValidationError(
+                message="Target servings must be between 1 and 24.",
+                details={"target_servings": target_servings},
+            )
 
-        # In mock or unconfigured mode, return explicit not-configured response
-        raise ServiceNotConfiguredError(
-            service_name="recipe_generation",
-            message="Smart Cooking Assistant service requires an active Google Cloud Gemini integration. "
-                    "Set AI_PROVIDER=gemini and provide GEMINI_API_KEY in backend/.env to run live recipe generation.",
-            details={
-                "configured_provider": settings.AI_PROVIDER,
-                "submitted_ingredients": clean_ingredients,
-            }
-        )
+        base_servings = recipe.base_servings or recipe.servings or 1
+        ratio = target_servings / base_servings
+
+        scaled_quantities = []
+        for ing in recipe.ingredient_quantities:
+            scaled_amount = round(ing.amount * ratio, 2)
+            # If round to 2 decimals gives clean int, keep clean
+            if scaled_amount.is_integer():
+                scaled_amount = int(scaled_amount)
+
+            scaled_quantities.append(
+                RecipeIngredientQuantity(
+                    name=ing.name,
+                    amount=scaled_amount,
+                    unit=ing.unit,
+                    notes=ing.notes,
+                )
+            )
+
+        # Clone and update servings
+        updated = recipe.model_copy(deep=True)
+        updated.ingredient_quantities = scaled_quantities
+        updated.servings = target_servings
+
+        return updated

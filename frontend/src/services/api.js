@@ -162,10 +162,23 @@ export const api = {
    * Smart Cooking Assistant & Recipe Synthesis (Core - P0)
    * Generates tailored zero-waste recipes from available ingredients.
    *
-   * @param {{ ingredients: string[], dietary_preferences?: string[], max_cook_time_minutes?: number }} payload
+   * @param {{ ingredients: string[], cuisine?: string, dietary_preference?: string, allergies_and_avoid?: string[], servings?: number, max_cook_time_minutes?: number, skill_level?: string }} payload
    */
   async generateRecipes(payload, options = {}) {
-    return request('/api/v1/recipes/generate', {
+    return request('/api/recipes/generate', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      ...options,
+    });
+  },
+
+  /**
+   * Scale ingredient quantities of an existing recipe
+   *
+   * @param {{ recipe: Object, target_servings: number }} payload
+   */
+  async scaleRecipe(payload, options = {}) {
+    return request('/api/recipes/scale', {
       method: 'POST',
       body: JSON.stringify(payload),
       ...options,

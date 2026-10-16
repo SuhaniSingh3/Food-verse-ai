@@ -34,19 +34,24 @@ async def test_vision_analyze_returns_explicit_unconfigured_response(monkeypatch
 
 
 @pytest.mark.asyncio
-async def test_recipe_generate_returns_explicit_unconfigured_response():
+async def test_recipe_generate_returns_explicit_unconfigured_response(monkeypatch):
     """Verify POST /api/v1/recipes/generate returns 501 Not Implemented without generating fake recipes."""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "AI_PROVIDER", "gemini")
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "")
+
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         payload = {
             "ingredients": ["Tomato", "Olive Oil", "Garlic"],
-            "dietary_preferences": ["Vegetarian"],
+            "dietary_preference": "Vegetarian",
             "max_cook_time_minutes": 25,
         }
         response = await client.post("/api/v1/recipes/generate", json=payload)
         assert response.status_code == 501
         body = response.json()
         assert "error" in body
+        assert body["error"]["code"] == "SERVICE_NOT_CONFIGURED"
         assert body["error"]["code"] == "SERVICE_NOT_CONFIGURED"
 
 
