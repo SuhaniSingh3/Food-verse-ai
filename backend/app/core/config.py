@@ -39,10 +39,16 @@ class Settings(BaseSettings):
     TEMP_UPLOAD_DIR: str = ""
 
     # AI Provider Settings
-    AI_PROVIDER: str = "mock"  # "mock" or "gemini"
+    # Supported values: "vertexai" (Google Cloud Vertex AI), "gemini" (Gemini Developer API), "mock" (Test mode)
+    AI_PROVIDER: str = "mock"
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-1.5-flash"
     AI_REQUEST_TIMEOUT_SECONDS: int = 25
+
+    # Google Cloud Vertex AI Configuration
+    GCP_PROJECT_ID: str = ""
+    GCP_LOCATION: str = "us-central1"
+    GOOGLE_APPLICATION_CREDENTIALS: str = ""
 
     # Database Placeholder (Persistent storage enabled in database phase)
     DATABASE_URL: str = "sqlite:///./food_verse.db"
@@ -64,6 +70,15 @@ class Settings(BaseSettings):
             return v
         return ["http://localhost:5173", "http://127.0.0.1:5173"]
 
+    @field_validator("AI_PROVIDER", mode="before")
+    @classmethod
+    def validate_provider(cls, v: str) -> str:
+        clean = str(v).lower().strip()
+        allowed = ("vertexai", "gemini", "mock")
+        if clean not in allowed:
+            raise ValueError(f"Invalid AI_PROVIDER '{v}'. Must be one of: {', '.join(allowed)}")
+        return clean
+
     @property
     def is_production(self) -> bool:
         """Helper to determine if running in production."""
@@ -71,8 +86,13 @@ class Settings(BaseSettings):
 
     @property
     def is_gemini_configured(self) -> bool:
-        """Helper to verify if a valid Gemini API key is present."""
+        """Helper to verify if a valid Gemini Developer API key is present."""
         return bool(self.GEMINI_API_KEY and self.GEMINI_API_KEY.strip() and not self.GEMINI_API_KEY.startswith("your_"))
+
+    @property
+    def is_vertexai_configured(self) -> bool:
+        """Helper to verify if Google Cloud Vertex AI parameters are configured."""
+        return bool(self.GCP_PROJECT_ID and self.GCP_PROJECT_ID.strip() and not self.GCP_PROJECT_ID.startswith("your_"))
 
     @property
     def safe_temp_dir(self) -> str:

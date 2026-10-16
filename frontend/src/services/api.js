@@ -132,13 +132,26 @@ export const api = {
   },
 
   /**
-   * Food Image Recognition & Ingredient Decomposition (Core - P0)
-   * Sends multipart/form-data containing the food photo.
+   * Multimodal Food Image Recognition & Ingredient Analysis (Dedicated endpoint)
+   * Sends multipart/form-data containing the food photo and optional question.
    *
-   * @param {FormData} formData - Contains 'file' (image binary) and optional 'meal_type'
+   * @param {FormData} formData - Contains 'file', optional 'question', and optional 'meal_type'
+   */
+  async analyzeFood(formData, options = {}) {
+    return request('/api/food/analyze', {
+      method: 'POST',
+      body: formData,
+      ...options,
+    });
+  },
+
+  /**
+   * Food Image Recognition & Ingredient Decomposition (Alias for v1 compatibility)
+   *
+   * @param {FormData} formData - Contains 'file' (image binary) and optional 'question', 'meal_type'
    */
   async analyzeFoodImage(formData, options = {}) {
-    return request('/api/v1/vision/analyze', {
+    return request('/api/food/analyze', {
       method: 'POST',
       body: formData,
       ...options,

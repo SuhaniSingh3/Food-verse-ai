@@ -13,8 +13,12 @@ def create_test_image() -> bytes:
 
 
 @pytest.mark.asyncio
-async def test_vision_analyze_returns_explicit_unconfigured_response():
+async def test_vision_analyze_returns_explicit_unconfigured_response(monkeypatch):
     """Verify POST /api/v1/vision/analyze returns 501 Not Implemented when live AI provider is unconfigured."""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "AI_PROVIDER", "gemini")
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "")
+
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         image_bytes = create_test_image()
@@ -26,7 +30,7 @@ async def test_vision_analyze_returns_explicit_unconfigured_response():
         body = response.json()
         assert "error" in body
         assert body["error"]["code"] == "SERVICE_NOT_CONFIGURED"
-        assert "requires an active Google Cloud Gemini integration" in body["error"]["message"] or "not configured" in body["error"]["message"]
+        assert "not configured" in body["error"]["message"].lower()
 
 
 @pytest.mark.asyncio

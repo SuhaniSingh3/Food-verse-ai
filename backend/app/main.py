@@ -2,6 +2,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.api.food import router as food_router
 from app.api.health import router as health_router
 from app.api.v1.router import api_v1_router
 from app.core.config import settings
@@ -51,6 +52,7 @@ app.add_middleware(
 
 # Register API routers
 app.include_router(health_router, prefix=settings.API_V1_PREFIX)
+app.include_router(food_router, prefix=settings.API_V1_PREFIX)
 app.include_router(api_v1_router, prefix=settings.API_V1_PREFIX)
 
 
