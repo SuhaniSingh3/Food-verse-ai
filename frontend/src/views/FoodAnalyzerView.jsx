@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import api from '../services/api';
 import ImageUploader from '../components/common/ImageUploader';
 import LoadingIndicator from '../components/common/LoadingIndicator';
 import AlertMessage from '../components/common/AlertMessage';
 import AiDisclaimer from '../components/common/AiDisclaimer';
 
-// Benchmark reference ingredient data calibrated against USDA nutritional standards
-const SAMPLE_RECOGNITION = {
+// Benchmark reference ingredient data calibrated against USDA nutritional standards (used for prototype preview)
+const PROTOTYPE_PREVIEW_DATA = {
   dishName: 'Mediterranean Grilled Salmon Bowl',
   confidenceScore: 0.94,
   dietaryTags: ['High-Protein', 'Pescatarian', 'Gluten-Free', 'Omega-3 Rich'],
@@ -26,6 +27,7 @@ export default function FoodAnalyzerView({ setActiveView }) {
   const [mealType, setMealType] = useState('Lunch');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState(null);
+  const [endpointUnavailable, setEndpointUnavailable] = useState(null);
   const [notification, setNotification] = useState(null);
 
   // Portion-adjustable ingredient state
@@ -35,6 +37,7 @@ export default function FoodAnalyzerView({ setActiveView }) {
     setSelectedImage(file);
     setPreviewUrl(url);
     setAnalysisResult(null);
+    setEndpointUnavailable(null);
     setNotification(null);
   };
 
@@ -42,25 +45,66 @@ export default function FoodAnalyzerView({ setActiveView }) {
     setSelectedImage(null);
     setPreviewUrl(null);
     setAnalysisResult(null);
+    setEndpointUnavailable(null);
     setNotification(null);
   };
 
-  const runAnalysis = () => {
+  const runAnalysis = async () => {
     if (!previewUrl) return;
 
     setIsAnalyzing(true);
+    setEndpointUnavailable(null);
     setNotification(null);
 
-    // Simulate API inference pipeline delay (1.2s)
-    setTimeout(() => {
-      setIsAnalyzing(false);
-      setAnalysisResult(SAMPLE_RECOGNITION);
-      setIngredients(SAMPLE_RECOGNITION.ingredients);
+    const formData = new FormData();
+
+    try {
+      if (selectedImage) {
+        formData.append('file', selectedImage);
+      } else {
+        // If sample photo used, convert to blob to exercise real multipart upload
+        const response = await fetch(previewUrl);
+        const blob = await response.blob();
+        formData.append('file', blob, 'sample_food.jpg');
+      }
+      formData.append('meal_type', mealType);
+
+      // Real HTTP multipart request dispatched to FastAPI backend
+      const result = await api.analyzeFoodImage(formData);
+
+      setAnalysisResult(result);
+      setIngredients(result.ingredients || []);
       setNotification({
         type: 'success',
-        message: 'Food items recognized and decomposed with high confidence (94%). You may adjust gram weights below to fine-tune macros.',
+        message: 'Food items recognized and decomposed by backend vision API!',
       });
-    }, 1200);
+    } catch (err) {
+      if (err.isUnavailable) {
+        // Display clear unavailable state
+        setEndpointUnavailable({
+          endpoint: '/api/v1/vision/analyze',
+          status: err.status,
+          message: err.message,
+        });
+      } else {
+        setNotification({
+          type: 'error',
+          message: err.message,
+        });
+      }
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleLoadPrototypePreview = () => {
+    setEndpointUnavailable(null);
+    setAnalysisResult(PROTOTYPE_PREVIEW_DATA);
+    setIngredients(PROTOTYPE_PREVIEW_DATA.ingredients);
+    setNotification({
+      type: 'info',
+      message: 'Displaying prototype UI simulation based on USDA calibrated reference data.',
+    });
   };
 
   const handleGramsChange = (index, newGrams) => {
@@ -86,7 +130,7 @@ export default function FoodAnalyzerView({ setActiveView }) {
     { calories: 0, protein: 0, carbs: 0, fat: 0 }
   );
 
-  const handleSaveToMealLog = () => {
+  const handleSaveToMealLog = async () => {
     if (!analysisResult) return;
 
     const newMeal = {
@@ -108,6 +152,13 @@ export default function FoodAnalyzerView({ setActiveView }) {
       })),
     };
 
+    // Attempt backend save, gracefully falling back to local client state
+    try {
+      await api.logMeal(newMeal);
+    } catch {
+      // Backend meal persistence pending Phase 3
+    }
+
     addMeal(newMeal);
     setNotification({
       type: 'success',
@@ -121,7 +172,7 @@ export default function FoodAnalyzerView({ setActiveView }) {
       <div>
         <h2>Food Image Recognition & Ingredient Analysis</h2>
         <p style={{ marginTop: '0.35rem', color: 'var(--text-muted)' }}>
-          Upload or capture a photo of your meal. The multi-modal vision engine decomposes individual food items and computes portion-scaled macros.
+          Dispatches multipart/form-data food photos to the FastAPI backend. Analyzes plate components and portion-scaled macros.
         </p>
       </div>
 
@@ -135,73 +186,97 @@ export default function FoodAnalyzerView({ setActiveView }) {
 
       {/* Upload & Setup Section */}
       <div className="card">
-        <div style={{ display: 'grid', gridTemplateColumns: previewUrl ? '1fr' : '1fr', gap: '1.5rem' }}>
-          <ImageUploader
-            selectedImage={selectedImage}
-            previewUrl={previewUrl}
-            onImageSelected={handleImageSelected}
-            onImageRemoved={handleImageRemoved}
-            sampleImageUrl="/food_hero.jpg"
-            sampleLabel="Load Demo Salmon Quinoa Bowl"
-            label="Upload food plate photo"
-          />
+        <ImageUploader
+          selectedImage={selectedImage}
+          previewUrl={previewUrl}
+          onImageSelected={handleImageSelected}
+          onImageRemoved={handleImageRemoved}
+          sampleImageUrl="/food_hero.jpg"
+          sampleLabel="Load Demo Salmon Quinoa Bowl"
+          label="Upload food plate photo"
+        />
 
-          {previewUrl && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                paddingTop: '1rem',
-                borderTop: '1px solid var(--border-subtle)',
-                flexWrap: 'wrap',
-                gap: '1rem',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <label htmlFor="meal-type-select" style={{ fontWeight: '600', fontSize: '0.9rem' }}>
-                  Meal Category:
-                </label>
-                <select
-                  id="meal-type-select"
-                  value={mealType}
-                  onChange={(e) => setMealType(e.target.value)}
-                  style={{
-                    padding: '0.45rem 0.85rem',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--border-light)',
-                    fontFamily: 'inherit',
-                    fontSize: '0.9rem',
-                    background: '#ffffff',
-                  }}
-                >
-                  <option value="Breakfast">Breakfast</option>
-                  <option value="Lunch">Lunch</option>
-                  <option value="Dinner">Dinner</option>
-                  <option value="Snack">Snack</option>
-                </select>
-              </div>
-
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={runAnalysis}
-                disabled={isAnalyzing}
+        {previewUrl && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingTop: '1rem',
+              borderTop: '1px solid var(--border-subtle)',
+              flexWrap: 'wrap',
+              gap: '1rem',
+              marginTop: '1rem',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <label htmlFor="meal-type-select" style={{ fontWeight: '600', fontSize: '0.9rem' }}>
+                Meal Category:
+              </label>
+              <select
+                id="meal-type-select"
+                value={mealType}
+                onChange={(e) => setMealType(e.target.value)}
+                style={{
+                  padding: '0.45rem 0.85rem',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--border-light)',
+                  fontFamily: 'inherit',
+                  fontSize: '0.9rem',
+                  background: '#ffffff',
+                }}
               >
-                {isAnalyzing ? 'Analyzing Image...' : '⚡ Run Vision Analysis'}
-              </button>
+                <option value="Breakfast">Breakfast</option>
+                <option value="Lunch">Lunch</option>
+                <option value="Dinner">Dinner</option>
+                <option value="Snack">Snack</option>
+              </select>
             </div>
-          )}
-        </div>
+
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={runAnalysis}
+              disabled={isAnalyzing}
+            >
+              {isAnalyzing ? 'Sending to Backend...' : '⚡ Run Vision Analysis (HTTP POST)'}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Loading Indicator */}
       {isAnalyzing && (
         <div className="card">
           <LoadingIndicator
-            message="Processing Food Image via Vision Model..."
-            subtext="Extracting visual food features, estimating portion weights, and querying USDA benchmark data."
+            message="Transmitting Multipart Payload to FastAPI Backend..."
+            subtext="Endpoint: POST /api/v1/vision/analyze. Model: Gemini 1.5 Flash Vision."
           />
+        </div>
+      )}
+
+      {/* Endpoint Unavailable State (Honest Representation) */}
+      {endpointUnavailable && !isAnalyzing && (
+        <div className="card" style={{ borderColor: 'var(--orange-border)', background: 'var(--bg-orange-subtle)' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
+            <span style={{ fontSize: '1.75rem' }} aria-hidden="true">🚧</span>
+            <div style={{ flex: 1 }}>
+              <h3 style={{ color: 'var(--orange-primary)', marginBottom: '0.35rem' }}>
+                Backend Vision Pipeline Under Development (HTTP {endpointUnavailable.status || 404})
+              </h3>
+              <p style={{ color: '#9a3412', fontSize: '0.9rem', lineHeight: 1.5, marginBottom: '1rem' }}>
+                The HTTP request reached the backend server, but the route <code>{endpointUnavailable.endpoint}</code> is not yet implemented.
+                In accordance with the project plan, the vision model adapter and USDA calibration engine are scheduled for Phase 2 & 3.
+              </p>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={handleLoadPrototypePreview}
+              >
+                💡 Preview Expected Vision & Nutrition UI
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

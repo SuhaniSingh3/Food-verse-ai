@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
+import api from '../services/api';
 import ImageUploader from '../components/common/ImageUploader';
 import LoadingIndicator from '../components/common/LoadingIndicator';
 import AlertMessage from '../components/common/AlertMessage';
 import AiDisclaimer from '../components/common/AiDisclaimer';
 
-const SAMPLE_HYGIENE_AUDIT = {
+const PROTOTYPE_HYGIENE_DATA = {
   stationType: 'Commercial Restaurant Prep Station & Stainless Work Table',
   hygieneScore: 96,
   riskTier: 'Low Risk — Excellent Sanitation Compliance',
@@ -28,12 +29,14 @@ export default function HygieneAnalyzerView() {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [isAuditing, setIsAuditing] = useState(false);
   const [auditResult, setAuditResult] = useState(null);
+  const [endpointUnavailable, setEndpointUnavailable] = useState(null);
   const [notification, setNotification] = useState(null);
 
   const handleImageSelected = (file, url) => {
     setSelectedImage(file);
     setPreviewUrl(url);
     setAuditResult(null);
+    setEndpointUnavailable(null);
     setNotification(null);
   };
 
@@ -41,24 +44,59 @@ export default function HygieneAnalyzerView() {
     setSelectedImage(null);
     setPreviewUrl(null);
     setAuditResult(null);
+    setEndpointUnavailable(null);
     setNotification(null);
   };
 
-  const handleRunAudit = () => {
+  const handleRunAudit = async () => {
     if (!previewUrl) return;
 
     setIsAuditing(true);
+    setEndpointUnavailable(null);
     setNotification(null);
 
-    // Simulate vision hygiene screening pipeline delay (1.4s)
-    setTimeout(() => {
-      setIsAuditing(false);
-      setAuditResult(SAMPLE_HYGIENE_AUDIT);
+    const formData = new FormData();
+    try {
+      if (selectedImage) {
+        formData.append('file', selectedImage);
+      } else {
+        const response = await fetch(previewUrl);
+        const blob = await response.blob();
+        formData.append('file', blob, 'sample_kitchen.jpg');
+      }
+
+      // Real HTTP POST multipart dispatch to FastAPI backend
+      const result = await api.auditHygiene(formData);
+      setAuditResult(result);
       setNotification({
         type: 'success',
-        message: 'Kitchen hygiene visual audit completed. Cleanliness rating: 96/100 (Low Risk).',
+        message: 'Kitchen hygiene visual audit completed by backend API!',
       });
-    }, 1400);
+    } catch (err) {
+      if (err.isUnavailable) {
+        setEndpointUnavailable({
+          endpoint: '/api/v1/optional/hygiene',
+          status: err.status,
+          message: err.message,
+        });
+      } else {
+        setNotification({
+          type: 'error',
+          message: err.message,
+        });
+      }
+    } finally {
+      setIsAuditing(false);
+    }
+  };
+
+  const handleLoadPrototypeAudit = () => {
+    setEndpointUnavailable(null);
+    setAuditResult(PROTOTYPE_HYGIENE_DATA);
+    setNotification({
+      type: 'info',
+      message: 'Displaying prototype commercial kitchen sanitation scorecard.',
+    });
   };
 
   return (
@@ -102,7 +140,7 @@ export default function HygieneAnalyzerView() {
               onClick={handleRunAudit}
               disabled={isAuditing}
             >
-              {isAuditing ? 'Auditing Cleanliness...' : '🧼 Audit Kitchen Hygiene'}
+              {isAuditing ? 'Transmitting to Backend...' : '🧼 Audit Kitchen Hygiene (HTTP POST)'}
             </button>
           </div>
         )}
@@ -112,9 +150,33 @@ export default function HygieneAnalyzerView() {
       {isAuditing && (
         <div className="card">
           <LoadingIndicator
-            message="Conducting Visual Sanitation Audit..."
-            subtext="Evaluating work surfaces, storage seals, clutter, pest risks, and handwashing station proximity."
+            message="Transmitting Image to Backend Hygiene Screener..."
+            subtext="Endpoint: POST /api/v1/optional/hygiene. Evaluating surface cleanliness."
           />
+        </div>
+      )}
+
+      {/* Endpoint Unavailable State */}
+      {endpointUnavailable && !isAuditing && (
+        <div className="card" style={{ borderColor: 'var(--orange-border)', background: 'var(--bg-orange-subtle)' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
+            <span style={{ fontSize: '1.75rem' }} aria-hidden="true">🚧</span>
+            <div style={{ flex: 1 }}>
+              <h3 style={{ color: 'var(--orange-primary)', marginBottom: '0.35rem' }}>
+                Backend Hygiene Endpoint Under Development (HTTP {endpointUnavailable.status || 404})
+              </h3>
+              <p style={{ color: '#9a3412', fontSize: '0.9rem', lineHeight: 1.5, marginBottom: '1rem' }}>
+                The HTTP request reached the backend server, but route <code>{endpointUnavailable.endpoint}</code> is scheduled for Phase 5 (Optional Modules) in the project roadmap.
+              </p>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={handleLoadPrototypeAudit}
+              >
+                💡 Preview Prototype Hygiene Scorecard UI
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -207,7 +269,7 @@ export default function HygieneAnalyzerView() {
       )}
 
       {/* Honest Empty State */}
-      {!previewUrl && !isAuditing && (
+      {!previewUrl && !isAuditing && !endpointUnavailable && (
         <div className="empty-state">
           <div className="empty-state-icon" aria-hidden="true">🧼</div>
           <h3>Kitchen Cleanliness Screener</h3>

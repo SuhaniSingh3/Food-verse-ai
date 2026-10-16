@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import api from '../services/api';
 import AlertMessage from '../components/common/AlertMessage';
 import AiDisclaimer from '../components/common/AiDisclaimer';
 
@@ -7,6 +8,22 @@ export default function NutritionPlannerView() {
   const { targets, updateTargets, consumedToday } = useApp();
   const [formTargets, setFormTargets] = useState({ ...targets });
   const [notification, setNotification] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    async function loadBackendProfile() {
+      try {
+        const profile = await api.getNutritionProfile();
+        if (profile) {
+          updateTargets(profile);
+          setFormTargets(profile);
+        }
+      } catch {
+        // Backend profile endpoint pending Phase 3
+      }
+    }
+    loadBackendProfile();
+  }, [updateTargets]);
 
   const handleSliderChange = (field, value) => {
     setFormTargets((prev) => ({
@@ -15,12 +32,23 @@ export default function NutritionPlannerView() {
     }));
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
+    setIsSaving(true);
+    setNotification(null);
+
+    try {
+      await api.updateNutritionProfile(formTargets);
+    } catch {
+      // Backend profile endpoint pending Phase 3
+    } finally {
+      setIsSaving(false);
+    }
+
     updateTargets(formTargets);
     setNotification({
       type: 'success',
-      message: 'Nutritional targets updated! Dashboard and progress gauges have synchronized.',
+      message: 'Nutritional targets saved! Dashboard and progress gauges have synchronized.',
     });
   };
 
@@ -279,8 +307,8 @@ export default function NutritionPlannerView() {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-subtle)' }}>
-            <button type="submit" className="btn btn-primary">
-              💾 Save Nutritional Targets
+            <button type="submit" className="btn btn-primary" disabled={isSaving}>
+              {isSaving ? 'Saving...' : '💾 Save Nutritional Targets'}
             </button>
           </div>
         </div>

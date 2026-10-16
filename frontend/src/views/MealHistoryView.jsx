@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import api from '../services/api';
 import ConfirmModal from '../components/common/ConfirmModal';
 import AlertMessage from '../components/common/AlertMessage';
 import AiDisclaimer from '../components/common/AiDisclaimer';
@@ -11,6 +12,24 @@ export default function MealHistoryView({ setActiveView }) {
   const [mealToDelete, setMealToDelete] = useState(null);
   const [showClearAllModal, setShowClearAllModal] = useState(false);
   const [notification, setNotification] = useState(null);
+  const [backendSyncStatus, setBackendSyncStatus] = useState('checking'); // 'checking' | 'synced' | 'local_only'
+
+  useEffect(() => {
+    async function checkBackendMeals() {
+      try {
+        await api.getMealHistory();
+        setBackendSyncStatus('synced');
+      } catch (err) {
+        if (err.isUnavailable) {
+          // Endpoint not implemented yet (scheduled for Phase 3)
+          setBackendSyncStatus('local_only');
+        } else {
+          setBackendSyncStatus('local_only');
+        }
+      }
+    }
+    checkBackendMeals();
+  }, []);
 
   // Filtered meals
   const filteredMeals = meals.filter((meal) => {
@@ -33,8 +52,13 @@ export default function MealHistoryView({ setActiveView }) {
     { calories: 0, protein: 0, carbs: 0, fat: 0 }
   );
 
-  const confirmDeleteMeal = () => {
+  const confirmDeleteMeal = async () => {
     if (mealToDelete) {
+      try {
+        await api.deleteMeal(mealToDelete.id);
+      } catch {
+        // Backend delete pending Phase 3
+      }
       deleteMeal(mealToDelete.id);
       setNotification({
         type: 'info',
@@ -49,7 +73,7 @@ export default function MealHistoryView({ setActiveView }) {
     setShowClearAllModal(false);
     setNotification({
       type: 'warning',
-      message: 'All meal logs have been cleared.',
+      message: 'All meal logs have been cleared from local storage.',
     });
   };
 
@@ -58,7 +82,22 @@ export default function MealHistoryView({ setActiveView }) {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h2>Meal History & Nutritional Logs</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <h2>Meal History & Nutritional Logs</h2>
+            <span
+              className="ai-pill-tag"
+              style={{
+                background: backendSyncStatus === 'synced' ? 'var(--color-success-bg)' : 'var(--bg-subtle)',
+                color: backendSyncStatus === 'synced' ? 'var(--color-success)' : 'var(--text-muted)',
+                borderColor: backendSyncStatus === 'synced' ? 'var(--green-border)' : 'var(--border-light)',
+              }}
+              title="Indicates whether meal history is syncing with FastAPI backend SQLite database or persisting locally"
+            >
+              {backendSyncStatus === 'synced' && '● Backend Database Synced'}
+              {backendSyncStatus === 'checking' && '○ Checking Backend Sync...'}
+              {backendSyncStatus === 'local_only' && '○ Persistent Client Mode (GET /api/v1/meals pending Phase 3)'}
+            </span>
+          </div>
           <p style={{ marginTop: '0.35rem', color: 'var(--text-muted)' }}>
             Chronological record of recognized and logged meals with ingredient decompositions.
           </p>

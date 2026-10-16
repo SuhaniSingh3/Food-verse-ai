@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
+import api from '../services/api';
 import ImageUploader from '../components/common/ImageUploader';
 import LoadingIndicator from '../components/common/LoadingIndicator';
 import AlertMessage from '../components/common/AlertMessage';
 import AiDisclaimer from '../components/common/AiDisclaimer';
 
-const SAMPLE_FRESHNESS_RESULT = {
+const PROTOTYPE_FRESHNESS_DATA = {
   itemType: 'Assorted Fresh Produce (Apples, Lemons, Spinach, Peppers)',
   freshnessGrade: 'Grade A',
   freshnessTitle: 'Peak Freshness & High Nutrient Density',
@@ -28,12 +29,14 @@ export default function FreshnessCheckerView() {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [evaluationResult, setEvaluationResult] = useState(null);
+  const [endpointUnavailable, setEndpointUnavailable] = useState(null);
   const [notification, setNotification] = useState(null);
 
   const handleImageSelected = (file, url) => {
     setSelectedImage(file);
     setPreviewUrl(url);
     setEvaluationResult(null);
+    setEndpointUnavailable(null);
     setNotification(null);
   };
 
@@ -41,24 +44,59 @@ export default function FreshnessCheckerView() {
     setSelectedImage(null);
     setPreviewUrl(null);
     setEvaluationResult(null);
+    setEndpointUnavailable(null);
     setNotification(null);
   };
 
-  const handleRunEvaluation = () => {
+  const handleRunEvaluation = async () => {
     if (!previewUrl) return;
 
     setIsEvaluating(true);
+    setEndpointUnavailable(null);
     setNotification(null);
 
-    // Simulate vision spoilage analysis pipeline delay (1.3s)
-    setTimeout(() => {
-      setIsEvaluating(false);
-      setEvaluationResult(SAMPLE_FRESHNESS_RESULT);
+    const formData = new FormData();
+    try {
+      if (selectedImage) {
+        formData.append('file', selectedImage);
+      } else {
+        const response = await fetch(previewUrl);
+        const blob = await response.blob();
+        formData.append('file', blob, 'sample_produce.jpg');
+      }
+
+      // Real HTTP POST multipart dispatch to FastAPI backend
+      const result = await api.analyzeFreshness(formData);
+      setEvaluationResult(result);
       setNotification({
         type: 'success',
-        message: 'Produce visual quality assessment completed with Grade A (Peak Freshness)!',
+        message: 'Produce visual quality assessment completed by backend API!',
       });
-    }, 1300);
+    } catch (err) {
+      if (err.isUnavailable) {
+        setEndpointUnavailable({
+          endpoint: '/api/v1/optional/freshness',
+          status: err.status,
+          message: err.message,
+        });
+      } else {
+        setNotification({
+          type: 'error',
+          message: err.message,
+        });
+      }
+    } finally {
+      setIsEvaluating(false);
+    }
+  };
+
+  const handleLoadPrototypeFreshness = () => {
+    setEndpointUnavailable(null);
+    setEvaluationResult(PROTOTYPE_FRESHNESS_DATA);
+    setNotification({
+      type: 'info',
+      message: 'Displaying prototype produce quality scorecard.',
+    });
   };
 
   return (
@@ -102,7 +140,7 @@ export default function FreshnessCheckerView() {
               onClick={handleRunEvaluation}
               disabled={isEvaluating}
             >
-              {isEvaluating ? 'Evaluating Produce...' : '🔍 Evaluate Freshness Grade'}
+              {isEvaluating ? 'Transmitting to Backend...' : '🔍 Evaluate Freshness (HTTP POST)'}
             </button>
           </div>
         )}
@@ -112,9 +150,33 @@ export default function FreshnessCheckerView() {
       {isEvaluating && (
         <div className="card">
           <LoadingIndicator
-            message="Scanning Produce for Spoilage Indicators..."
-            subtext="Evaluating skin texture, surface discoloration, turgidity, and potential fungal markers via vision AI."
+            message="Transmitting Image to Backend Freshness Pipeline..."
+            subtext="Endpoint: POST /api/v1/optional/freshness. Scanning visual cues."
           />
+        </div>
+      )}
+
+      {/* Endpoint Unavailable State */}
+      {endpointUnavailable && !isEvaluating && (
+        <div className="card" style={{ borderColor: 'var(--orange-border)', background: 'var(--bg-orange-subtle)' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
+            <span style={{ fontSize: '1.75rem' }} aria-hidden="true">🚧</span>
+            <div style={{ flex: 1 }}>
+              <h3 style={{ color: 'var(--orange-primary)', marginBottom: '0.35rem' }}>
+                Backend Freshness Endpoint Under Development (HTTP {endpointUnavailable.status || 404})
+              </h3>
+              <p style={{ color: '#9a3412', fontSize: '0.9rem', lineHeight: 1.5, marginBottom: '1rem' }}>
+                The HTTP request reached the backend server, but route <code>{endpointUnavailable.endpoint}</code> is scheduled for Phase 5 (Optional Modules) in the project roadmap.
+              </p>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={handleLoadPrototypeFreshness}
+              >
+                💡 Preview Prototype Freshness Evaluation UI
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -205,7 +267,7 @@ export default function FreshnessCheckerView() {
       )}
 
       {/* Honest Empty State */}
-      {!previewUrl && !isEvaluating && (
+      {!previewUrl && !isEvaluating && !endpointUnavailable && (
         <div className="empty-state">
           <div className="empty-state-icon" aria-hidden="true">🌿</div>
           <h3>Freshness & Spoilage Screener</h3>

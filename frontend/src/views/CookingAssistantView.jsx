@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import api from '../services/api';
 import LoadingIndicator from '../components/common/LoadingIndicator';
 import AlertMessage from '../components/common/AlertMessage';
 import AiDisclaimer from '../components/common/AiDisclaimer';
@@ -8,7 +9,7 @@ const STAPLE_SUGGESTIONS = [
   'Olive Oil', 'Garlic', 'Onion', 'Eggs', 'Lemon', 'Black Pepper', 'Sea Salt', 'Rice', 'Soy Sauce', 'Spinach'
 ];
 
-const SAMPLE_GENERATED_RECIPES = [
+const PROTOTYPE_RECIPES = [
   {
     id: 'recipe_demo_01',
     title: 'Crispy Pan-Seared Salmon with Herb Quinoa & Greens',
@@ -70,6 +71,7 @@ export default function CookingAssistantView() {
   const [maxCookTime, setMaxCookTime] = useState(30);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedRecipes, setGeneratedRecipes] = useState(null);
+  const [endpointUnavailable, setEndpointUnavailable] = useState(null);
   const [notification, setNotification] = useState(null);
 
   const handleAddIngredient = (item) => {
@@ -91,7 +93,7 @@ export default function CookingAssistantView() {
     }
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (ingredients.length === 0) {
       setNotification({
         type: 'warning',
@@ -101,17 +103,48 @@ export default function CookingAssistantView() {
     }
 
     setIsGenerating(true);
+    setEndpointUnavailable(null);
     setNotification(null);
 
-    // Simulate AI recipe synthesis pipeline delay (1.4s)
-    setTimeout(() => {
-      setIsGenerating(false);
-      setGeneratedRecipes(SAMPLE_GENERATED_RECIPES);
+    const payload = {
+      ingredients,
+      dietary_preferences: [dietaryPreference],
+      max_cook_time_minutes: maxCookTime,
+    };
+
+    try {
+      // Dispatches real HTTP POST to FastAPI backend
+      const result = await api.generateRecipes(payload);
+      setGeneratedRecipes(result.recipes || []);
       setNotification({
         type: 'success',
-        message: `Generated 2 zero-waste recipes matching ${ingredients.length} available pantry ingredients!`,
+        message: `Generated recipes from backend API!`,
       });
-    }, 1400);
+    } catch (err) {
+      if (err.isUnavailable) {
+        setEndpointUnavailable({
+          endpoint: '/api/v1/recipes/generate',
+          status: err.status,
+          message: err.message,
+        });
+      } else {
+        setNotification({
+          type: 'error',
+          message: err.message,
+        });
+      }
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleLoadPrototypeRecipes = () => {
+    setEndpointUnavailable(null);
+    setGeneratedRecipes(PROTOTYPE_RECIPES);
+    setNotification({
+      type: 'info',
+      message: 'Displaying prototype recipes matching your selected pantry ingredients.',
+    });
   };
 
   const handleSaveRecipe = (recipe) => {
@@ -130,7 +163,7 @@ export default function CookingAssistantView() {
       <div>
         <h2>Smart Cooking Assistant & Recipe Generator</h2>
         <p style={{ marginTop: '0.35rem', color: 'var(--text-muted)' }}>
-          Turn your current pantry items into delicious, healthy meals. The AI recipe engine maximizes what you already have to minimize food waste.
+          Dispatches ingredient lists to FastAPI backend. Synthesizes zero-waste recipes tailored to your pantry.
         </p>
       </div>
 
@@ -302,7 +335,7 @@ export default function CookingAssistantView() {
               disabled={isGenerating}
               style={{ width: '100%' }}
             >
-              {isGenerating ? 'Generating...' : '⚡ Generate Recipes'}
+              {isGenerating ? 'Contacting API...' : '⚡ Generate Recipes (HTTP POST)'}
             </button>
           </div>
         </div>
@@ -312,9 +345,33 @@ export default function CookingAssistantView() {
       {isGenerating && (
         <div className="card">
           <LoadingIndicator
-            message="Synthesizing Recipes via Generative AI..."
-            subtext="Matching available ingredients, respecting dietary rules, and formulating step-by-step culinary instructions."
+            message="Transmitting Recipe Request to Backend..."
+            subtext="Endpoint: POST /api/v1/recipes/generate. Synthesizing zero-waste instructions."
           />
+        </div>
+      )}
+
+      {/* Endpoint Unavailable Notice */}
+      {endpointUnavailable && !isGenerating && (
+        <div className="card" style={{ borderColor: 'var(--orange-border)', background: 'var(--bg-orange-subtle)' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
+            <span style={{ fontSize: '1.75rem' }} aria-hidden="true">🚧</span>
+            <div style={{ flex: 1 }}>
+              <h3 style={{ color: 'var(--orange-primary)', marginBottom: '0.35rem' }}>
+                Backend Recipe Endpoint Under Development (HTTP {endpointUnavailable.status || 404})
+              </h3>
+              <p style={{ color: '#9a3412', fontSize: '0.9rem', lineHeight: 1.5, marginBottom: '1rem' }}>
+                The HTTP request reached the backend server, but route <code>{endpointUnavailable.endpoint}</code> is scheduled for Phase 3 implementation in the project roadmap.
+              </p>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={handleLoadPrototypeRecipes}
+              >
+                💡 Preview Prototype Recipe Generator UI
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -408,7 +465,7 @@ export default function CookingAssistantView() {
       )}
 
       {/* Honest Empty State */}
-      {!generatedRecipes && !isGenerating && (
+      {!generatedRecipes && !isGenerating && !endpointUnavailable && (
         <div className="empty-state">
           <div className="empty-state-icon" aria-hidden="true">👨‍🍳</div>
           <h3>Zero-Waste Culinary Assistant</h3>
@@ -420,7 +477,7 @@ export default function CookingAssistantView() {
             className="btn btn-secondary"
             onClick={handleGenerate}
           >
-            ⚡ Generate Recipes with Sample Pantry
+            ⚡ Test Recipe Dispatch to Backend
           </button>
         </div>
       )}
