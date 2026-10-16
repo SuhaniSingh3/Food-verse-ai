@@ -1,21 +1,17 @@
 """Food Verse AI — FastAPI Application Entry Point."""
-import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.core.config import settings
 from app.api.health import router as health_router
-
-logging.basicConfig(
-    level=logging.INFO if not settings.DEBUG else logging.DEBUG,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger("food_verse")
+from app.api.v1.router import api_v1_router
+from app.core.config import settings
+from app.core.errors import register_exception_handlers
+from app.core.logging import logger
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifecycle hook for startup and shutdown events."""
+    """Lifecycle hook managing application startup and shutdown."""
     logger.info(
         f"Starting {settings.PROJECT_NAME} v{settings.VERSION} "
         f"in [{settings.ENVIRONMENT}] mode (AI Provider: {settings.AI_PROVIDER})"
@@ -27,14 +23,16 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    description="Intelligent Culinary & Nutritional Analysis Platform",
+    description="Intelligent Multi-Modal Culinary & Nutritional Analysis Platform",
     docs_url="/docs" if not settings.is_production else None,
     redoc_url="/redoc" if not settings.is_production else None,
     lifespan=lifespan,
 )
 
+# Register uniform application exception handlers
+register_exception_handlers(app)
+
 # CORS Policy Configuration
-# In production, wildcard '*' is strictly disallowed.
 cors_origins = settings.CORS_ORIGINS
 if settings.is_production and ("*" in cors_origins or not cors_origins):
     logger.warning(
@@ -53,6 +51,7 @@ app.add_middleware(
 
 # Register API routers
 app.include_router(health_router, prefix=settings.API_V1_PREFIX)
+app.include_router(api_v1_router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/", summary="Root Welcome")
@@ -60,5 +59,6 @@ async def root():
     return {
         "message": f"Welcome to {settings.PROJECT_NAME}",
         "documentation": "/docs" if not settings.is_production else "disabled in production",
-        "health_check": f"{settings.API_V1_PREFIX}/health"
+        "health_check": f"{settings.API_V1_PREFIX}/health",
+        "api_v1_prefix": f"{settings.API_V1_PREFIX}/v1",
     }

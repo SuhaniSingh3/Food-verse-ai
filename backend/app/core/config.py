@@ -1,5 +1,7 @@
 """Application configuration using Pydantic Settings."""
 import json
+import os
+import tempfile
 from typing import List, Union
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -21,22 +23,29 @@ class Settings(BaseSettings):
     API_V1_PREFIX: str = "/api"
 
     # CORS Configuration
-    # Safe default: only Vite local frontend ports in dev
     CORS_ORIGINS: Union[List[str], str] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ]
 
-    # Database
-    DATABASE_URL: str = "sqlite:///./food_verse.db"
+    # Media & Upload Security Guardrails
+    MAX_UPLOAD_SIZE_MB: int = 10
+    ALLOWED_IMAGE_MIME_TYPES: List[str] = [
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+    ]
+    MAX_IMAGE_DIMENSION_PX: int = 2048
+    TEMP_UPLOAD_DIR: str = ""
 
     # AI Provider Settings
     AI_PROVIDER: str = "mock"  # "mock" or "gemini"
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-1.5-flash"
+    AI_REQUEST_TIMEOUT_SECONDS: int = 25
 
-    # Security & Guardrails
-    MAX_UPLOAD_SIZE_MB: int = 10
+    # Database Placeholder (Persistent storage enabled in database phase)
+    DATABASE_URL: str = "sqlite:///./food_verse.db"
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
@@ -59,6 +68,18 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         """Helper to determine if running in production."""
         return self.ENVIRONMENT.lower() == "production"
+
+    @property
+    def is_gemini_configured(self) -> bool:
+        """Helper to verify if a valid Gemini API key is present."""
+        return bool(self.GEMINI_API_KEY and self.GEMINI_API_KEY.strip() and not self.GEMINI_API_KEY.startswith("your_"))
+
+    @property
+    def safe_temp_dir(self) -> str:
+        """Return a validated safe temporary directory path."""
+        if self.TEMP_UPLOAD_DIR and os.path.isdir(self.TEMP_UPLOAD_DIR):
+            return self.TEMP_UPLOAD_DIR
+        return tempfile.gettempdir()
 
 
 settings = Settings()

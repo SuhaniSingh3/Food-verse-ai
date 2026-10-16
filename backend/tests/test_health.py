@@ -1,13 +1,13 @@
-"""Unit and integration test for /api/health endpoint."""
+"""Unit and integration tests for health check and root endpoints."""
 import pytest
 from httpx import ASGITransport, AsyncClient
-from app.main import app
 from app.core.config import settings
+from app.main import app
 
 
 @pytest.mark.asyncio
 async def test_health_check_returns_ok():
-    """Verify that /api/health returns 200, healthy status, and expected metadata."""
+    """Verify that /api/health returns HTTP 200 and schema conforming payload."""
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         response = await client.get("/api/health")
@@ -17,8 +17,9 @@ async def test_health_check_returns_ok():
         assert data["service"] == settings.PROJECT_NAME
         assert data["version"] == settings.VERSION
         assert data["environment"] == settings.ENVIRONMENT
-        assert "timestamp" in data
         assert data["ai_provider"] == settings.AI_PROVIDER
+        assert "timestamp" in data
+        assert "database" in data
 
 
 @pytest.mark.asyncio
@@ -31,3 +32,4 @@ async def test_root_endpoint():
         data = response.json()
         assert "message" in data
         assert "health_check" in data
+        assert "documentation" in data
