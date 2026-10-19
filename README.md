@@ -1,135 +1,221 @@
-# Food Verse AI 🍳
+# Food Verse AI 🍽️
 
-**Multi-Modal Culinary & Nutritional Intelligence Platform**  
-*Internship Completion Project for the NASSCOM FutureSkills Generative AI with Google Cloud Program.*
+**Food image classification, recipe assistance, and nutrition estimates
+in one web application.**
 
----
+Food Verse AI is a full-stack project built with a React frontend and
+FastAPI backend. Users can upload food images, review predictions from a
+pretrained Food-101 classifier, and explore recipe and nutrition
+information available in the application.
 
-## 📌 Project Overview
+> **Project status:** The classifier is a general-purpose 101-category
+> food model and may misclassify regional dishes, including Indian
+> foods. Recipes and nutrition information depend on the data available
+> in the app and should be treated as estimates where indicated. The
+> application does not determine food freshness, spoilage, allergens, or
+> food safety.
 
-**Food Verse AI** is an intelligent full-stack application designed to transform food perception, personalized nutrition, and kitchen waste management. Built using Google Cloud-compatible generative vision and language AI alongside deterministic nutritional databases, Food Verse AI provides:
+## Features
 
-- **Food Image Recognition & Ingredient Decomposition (Core - P0):** Identifies items and calculates portion sizes from plate photos.
-- **Smart Cooking Assistant (Core - P0):** Suggests practical recipes utilizing currently available pantry ingredients to eliminate food waste.
-- **Personalized Nutrition Planner (Core - P0):** Real-time daily calorie and macro tracking calibrated against USDA reference benchmarks.
-- **Central Dashboard & Meal History (Core - P1):** Responsive timeline of nutritional intake with interactive diagnostic telemetry.
-- **Produce Freshness & Spoilage Inspector (Optional - P2):** Visual detection of produce freshness and estimated shelf-life.
-- **Kitchen Hygiene & Cleanliness Screener (Optional - P2):** Rapid sanitation checklist audit for prep areas.
+-   **Food image classification:** Upload an image and view the top
+    food-category predictions.
+-   **Confidence scores:** Review prediction scores to understand the
+    model's uncertainty.
+-   **Recipe assistance:** View recipe information available in the
+    application's recipe catalogue and workflow.
+-   **Nutrition information:** View available nutrition estimates;
+    values may vary with ingredients and serving sizes.
+-   **Food-name correction:** Where available, confirm or correct a
+    model prediction before using it in recipe or nutrition views.
+-   **Analysis history:** Review previous analyses and clear history.
+-   **Recipe utilities:** Favorites and an interactive ingredients
+    checklist, where available in the current build.
+-   **Convenience tools:** Search history and download analysis reports,
+    where available in the current build.
 
----
+Features can vary with the checked-out code and configuration. Do not
+interpret planned enhancements as implemented capabilities.
 
-## 📁 Repository Structure
+## Technology stack
 
-```
-Food Verse AI/
-├── .gitignore                   # Excludes .env, virtualenvs, node_modules, sqlite
-├── README.md                    # Project overview & running instructions
-│
-├── docs/                        # Architecture & engineering specifications
-│   ├── PROJECT_PLAN.md          # Scope, phases, risk matrix, GCP vs AWS analysis
-│   ├── ARCHITECTURE.md          # System diagrams, component specs, database ERD
-│   ├── FEATURES.md              # Functional specifications & acceptance criteria
-│   └── DEVELOPMENT_CHECKLIST.md # Phased implementation checklist & verification gates
-│
-├── backend/                     # Python & FastAPI Service
-│   ├── requirements.txt         # Pinned production & development dependencies
-│   ├── .env.example             # Environment template
-│   ├── .env                     # Local configuration (Git-ignored)
+-   **Frontend:** React, Vite, JavaScript
+-   **Backend:** Python, FastAPI
+-   **Image classification:** Hugging Face Transformers
+-   **Classifier:** `rajkr/mobilenet-v2-food101` (Food-101, 101
+    categories)
+-   **Local application data:** Recipe catalogue and browser-side
+    state/storage where implemented
+
+## Repository structure
+
+``` text
+Food-verse-ai/
+├── .gitignore
+├── README.md
+├── backend/
+│   ├── requirements.txt
 │   ├── app/
-│   │   ├── main.py              # FastAPI application & CORS security
-│   │   ├── core/config.py       # Pydantic Settings & environment loader
-│   │   └── api/health.py        # /api/health endpoint
-│   └── tests/                   # Pytest test suite
-│       └── test_health.py       # Health check integration tests
-│
-└── frontend/                    # React 19 SPA (Vite)
-    ├── package.json             # NPM dependencies
-    ├── .env.example             # Frontend environment template
-    ├── .env                     # Local Vite environment config
+│   │   ├── ai/                 # AI providers, classifier and recipe helpers
+│   │   ├── api/                # API routes
+│   │   ├── core/               # Configuration
+│   │   ├── schemas/             # Request and response schemas
+│   │   └── services/            # Food analysis and nutrition services
+│   └── tests/                  # Backend tests and verification scripts
+└── frontend/
+    ├── package.json
     ├── src/
-    │   ├── main.jsx             # React entrypoint
-    │   ├── App.jsx              # Navigation shell, dashboard & health telemetry
-    │   ├── index.css            # Custom Vanilla CSS Design System (no Tailwind)
-    │   └── services/api.js      # Reusable API client with error handling
-    └── index.html               # Semantic HTML5 entry
+    │   ├── components/         # Shared UI components
+    │   ├── context/            # Application state
+    │   ├── services/           # API client
+    │   ├── utils/              # Utility functions
+    │   └── views/              # Application pages
+    └── tests/                  # Frontend verification scripts
 ```
 
----
+## Prerequisites
 
-## ⚙️ Prerequisites
+-   Python compatible with the packages pinned in
+    `backend/requirements.txt` (Python 3.11 is a reasonable starting
+    point)
+-   Node.js and npm compatible with `frontend/package.json`
+-   Git
+-   Internet access for installing dependencies and downloading the
+    model on first use
 
-- **Python:** 3.11 or newer (Python 3.13 supported)
-- **Node.js:** v18 or newer (v24 supported)
-- **npm:** v9 or newer (v11 supported)
-- **Git:** 2.x
+The pretrained model and machine-learning dependencies can take
+substantial disk space and may require a compatible machine. The local
+Food-101 classifier does not inherently require a paid API.
 
----
+## Run locally on Windows
 
-## 🚀 Quickstart Guide (Windows PowerShell)
+Run the backend and frontend in separate terminals from the project
+root.
 
-Open two separate Windows PowerShell windows (one for Backend, one for Frontend):
+### 1. Clone the repository
 
-### Terminal 1: Backend Service (FastAPI)
+``` powershell
+git clone https://github.com/SuhaniSingh3/Food-verse-ai.git
+cd Food-verse-ai
+```
 
-```powershell
-# Navigate to the backend directory
-cd "c:\Users\ASUS\Desktop\Food Verse AI\backend"
+### 2. Set up the backend
 
-# Activate the virtual environment
+``` powershell
+cd backend
+python -m venv venv
 .\venv\Scripts\Activate.ps1
-
-# (Optional - if dependencies are not yet installed)
+python -m pip install --upgrade pip
 pip install -r requirements.txt
-
-# Start the FastAPI development server with hot-reload
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-> **API Health Check:** [http://127.0.0.1:8000/api/health](http://127.0.0.1:8000/api/health)  
-> **Interactive Swagger API Docs:** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+If PowerShell blocks activation, you can invoke the environment's Python
+directly:
 
----
-
-### Terminal 2: Frontend Service (React + Vite)
-
-> **Note on Windows Execution Policy:** If your system blocks `.ps1` script execution, use `npm.cmd` instead of `npm`.
-
-```powershell
-# Navigate to the frontend directory
-cd "c:\Users\ASUS\Desktop\Food Verse AI\frontend"
-
-# (Optional - if dependencies are not yet installed)
-npm.cmd install
-
-# Start the Vite development server
-npm.cmd run dev
+``` powershell
+.\venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-> **Web Application:** [http://localhost:5173](http://localhost:5173)
+If the repository contains `backend/.env.example`, use it as a reference
+for local configuration and create `backend/.env` only if required. Do
+not copy real credentials into the repository.
 
----
+Start the backend from the `backend` directory:
 
-## 🧪 Running Automated Tests
-
-Run backend tests using `pytest` inside the virtual environment:
-
-```powershell
-cd "c:\Users\ASUS\Desktop\Food Verse AI\backend"
-.\venv\Scripts\python.exe -m pytest tests -v
+``` powershell
+python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
----
+If your local configuration uses a different entry point or port, follow
+the actual application configuration.
 
-## 🔒 Security & Guardrails
+If enabled by the backend, API endpoints are commonly available at:
 
-- **Zero Client-Side Keys:** Google Cloud API keys are strictly configured on the backend via environment variables (`.env`) and never exposed to the browser.
-- **CORS Protection:** By default in development, only requests from `http://localhost:5173` and `http://127.0.0.1:5173` are accepted. In production, wildcard `*` origins are blocked.
-- **Media Sanitization:** Pillow verifies image magic bytes and strips EXIF metadata before processing.
+-   Health check: `http://127.0.0.1:8000/api/health`
+-   Interactive API docs: `http://127.0.0.1:8000/docs`
 
----
+### 3. Set up the frontend
 
-## ☁️ Deployment Architecture & Unresolved Decision
+Open a second terminal at the project root:
 
-- **Program Charter:** NASSCOM FutureSkills Generative AI with Google Cloud.
-- **Primary Deployment:** Google Cloud Run (containerized serverless) + Google GenAI / Vertex AI.
-- **Unresolved AWS CLI Reference:** The original project brief mentions AWS CLI. To resolve this without blocking progress, the application adheres to 12-Factor principles and OCI Docker containerization, allowing seamless execution on either Google Cloud Run or AWS App Runner / ECS with zero code modifications. Full details are recorded in [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md).
+``` powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Open the local URL printed by Vite (commonly `http://localhost:5173`).
+
+If PowerShell script execution blocks `npm`, try `npm.cmd install` and
+`npm.cmd run dev`.
+
+### 4. Troubleshooting
+
+-   **Frontend cannot reach backend:** Check that both servers are
+    running and verify the API base URL in
+    `frontend/src/services/api.js` and the backend CORS configuration.
+-   **Model loads slowly:** The first run may download model files.
+    Allow time and disk space for this download.
+-   **Unexpected food prediction:** Food-101 only covers its trained
+    categories; try another image and use the app's correction control
+    if available.
+-   **Recipe or nutrition details are missing:** The app can only
+    display details supported by its current catalogue and data flow.
+
+## Testing
+
+The repository contains backend tests and frontend verification scripts.
+Run the backend tests from the `backend` directory after installing the
+development dependencies:
+
+``` powershell
+python -m pytest tests -v
+```
+
+Some frontend verification files are standalone scripts rather than a
+configured test-runner suite. Check `frontend/package.json` before
+assuming a standard `npm test` command is available.
+
+Only report a test as passing after actually running it.
+
+## Limitations and responsible use
+
+-   The model predicts among 101 food categories and may label a food
+    with a visually similar but incorrect category.
+-   Confidence scores are model outputs, not guarantees of correctness.
+-   Many Indian and regional dishes may not be represented adequately in
+    Food-101.
+-   Ingredients inferred from an image may be wrong or incomplete.
+-   Nutrition values are approximate and depend on recipe, preparation
+    method, portion size, and available data.
+-   A photograph cannot establish microbial safety, spoilage, allergens,
+    internal temperature, or safe storage.
+-   Do not use the application as a substitute for professional medical,
+    dietary, or food-safety advice.
+
+## Security
+
+-   Never commit `.env` files, API keys, passwords, or personal data.
+-   Keep virtual environments, `node_modules`, model weights, caches,
+    and local uploads out of Git.
+-   Review `.gitignore` before each upload.
+-   If a secret is accidentally committed, rotate or revoke it; deleting
+    it in a later commit does not remove it from Git history.
+
+## Roadmap
+
+Potential future improvements, not claims of current functionality:
+
+-   Improve recognition of Indian and regional foods.
+-   Expand and validate recipe and nutrition data.
+-   Add additional automated end-to-end tests.
+-   Improve user feedback and model uncertainty handling.
+
+## License
+
+No license is specified in this repository. Until a license is added,
+others do not automatically receive permission to reuse, distribute, or
+modify this code.
+
+## Repository
+
+<https://github.com/SuhaniSingh3/Food-verse-ai>
