@@ -1,17 +1,51 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import ConfirmModal from '../components/common/ConfirmModal';
+import AlertMessage from '../components/common/AlertMessage';
 import AiDisclaimer from '../components/common/AiDisclaimer';
 
 export default function DashboardView({ setActiveView }) {
-  const { meals, targets, consumedToday, savedRecipes, deleteMeal } = useApp();
+  const {
+    meals = [],
+    targets = { calories: 2000, protein_g: 120, carbs_g: 200, fat_g: 60 },
+    consumedToday = { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 },
+    clearAllMeals,
+  } = useApp() || {};
+
+  const [showClearAllModal, setShowClearAllModal] = useState(false);
+  const [notification, setNotification] = useState(null);
 
   const caloriePct = Math.min(100, Math.round((consumedToday.calories / targets.calories) * 100));
   const proteinPct = Math.min(100, Math.round((consumedToday.protein_g / targets.protein_g) * 100));
   const carbsPct = Math.min(100, Math.round((consumedToday.carbs_g / targets.carbs_g) * 100));
   const fatPct = Math.min(100, Math.round((consumedToday.fat_g / targets.fat_g) * 100));
 
+  const confirmClearAll = () => {
+    try {
+      if (clearAllMeals) clearAllMeals();
+      setShowClearAllModal(false);
+      setNotification({
+        type: 'success',
+        message: 'Analysis history cleared successfully.',
+      });
+    } catch (err) {
+      setShowClearAllModal(false);
+      setNotification({
+        type: 'error',
+        message: `Failed to clear analysis history: ${err.message || 'Unknown error'}`,
+      });
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      {notification && (
+        <AlertMessage
+          type={notification.type}
+          message={notification.message}
+          onDismiss={() => setNotification(null)}
+        />
+      )}
       {/* Hero Welcome Banner */}
       <div
         className="card"
@@ -178,13 +212,24 @@ export default function DashboardView({ setActiveView }) {
               Meals analyzed via vision model and logged to daily timeline.
             </p>
           </div>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => setActiveView('history')}
-          >
-            View All History ({meals.length}) →
-          </button>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => setActiveView('history')}
+            >
+              View All History ({meals.length}) →
+            </button>
+            <button
+              type="button"
+              className="btn btn-danger btn-sm"
+              onClick={() => setShowClearAllModal(true)}
+              disabled={meals.length === 0}
+              title={meals.length === 0 ? 'No history to clear' : 'Clear all analysis history entries'}
+            >
+              🗑️ Clear History
+            </button>
+          </div>
         </div>
 
         {meals.length > 0 ? (
@@ -260,7 +305,7 @@ export default function DashboardView({ setActiveView }) {
         ) : (
           <div className="empty-state">
             <div className="empty-state-icon" aria-hidden="true">🍽️</div>
-            <h3>No Meals Recorded Today</h3>
+            <h3>No analysis history yet.</h3>
             <p>
               Capture or upload a plate photo in the Food Analyzer to identify items, compute verified macros, and populate your timeline.
             </p>
@@ -274,6 +319,17 @@ export default function DashboardView({ setActiveView }) {
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={showClearAllModal}
+        title="Clear Analysis History"
+        message="Are you sure you want to clear your analysis history?"
+        confirmText="Clear History"
+        cancelText="Cancel"
+        isDanger={true}
+        onConfirm={confirmClearAll}
+        onCancel={() => setShowClearAllModal(false)}
+      />
 
       {/* Model Disclaimer */}
       <AiDisclaimer category="nutritional" />

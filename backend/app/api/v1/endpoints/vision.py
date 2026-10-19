@@ -1,7 +1,7 @@
 """Food vision analysis API endpoints."""
 from typing import Optional
 from fastapi import APIRouter, File, Form, UploadFile
-from app.schemas.food_analysis import StructuredFoodAnalysisResponse
+from app.schemas.food_analysis import DishConfirmationRequest, StructuredFoodAnalysisResponse
 from app.services.food_analysis_service import FoodAnalysisService
 
 router = APIRouter(prefix="/vision", tags=["Food Vision"])
@@ -27,3 +27,16 @@ async def analyze_food(
         meal_type=meal_type,
         filename=file.filename or "upload.jpg",
     )
+
+
+@router.post(
+    "/confirm",
+    response_model=StructuredFoodAnalysisResponse,
+    summary="Confirm or Correct Identified Dish",
+    description="Accepts user confirmation or correction payload and returns authentic culinary and benchmark nutritional data.",
+)
+async def confirm_dish(
+    payload: DishConfirmationRequest,
+) -> StructuredFoodAnalysisResponse:
+    return FoodAnalysisService.confirm_food_dish(payload)
+

@@ -3,7 +3,7 @@ import time
 from typing import Optional
 from app.ai.factory import get_vision_ai_provider
 from app.core.logging import logger
-from app.schemas.food_analysis import StructuredFoodAnalysisResponse
+from app.schemas.food_analysis import DishConfirmationRequest, StructuredFoodAnalysisResponse
 from app.utils.image_guard import ImageGuard, SanitizedImageResult
 
 
@@ -47,3 +47,22 @@ class FoodAnalysisService:
         result.provider_metadata["total_service_ms"] = round(total_elapsed_ms, 1)
 
         return result
+
+    @classmethod
+    def confirm_food_dish(
+        cls,
+        payload: DishConfirmationRequest,
+    ) -> StructuredFoodAnalysisResponse:
+        """Confirm or correct dish identity and return authentic culinary profile and benchmark nutrition."""
+        logger.info(
+            f"User confirmed dish: '{payload.confirmed_dish}' (original candidate: {payload.original_prediction})"
+        )
+        provider = get_vision_ai_provider()
+        return provider.confirm_dish(
+            confirmed_dish=payload.confirmed_dish,
+            original_prediction=payload.original_prediction,
+            confidence=payload.confidence,
+            top_predictions=payload.top_predictions,
+            user_question=payload.user_question,
+        )
+

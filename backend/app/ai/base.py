@@ -41,3 +41,15 @@ class BaseVisionAIProvider(ABC):
             ServiceNotConfiguredError: When required credentials or environment vars are missing.
         """
         pass
+
+    def confirm_dish(
+        self,
+        confirmed_dish: str,
+        original_prediction: Optional[str] = None,
+        confidence: Optional[float] = None,
+        top_predictions: Optional[list] = None,
+        user_question: Optional[str] = None,
+    ) -> StructuredFoodAnalysisResponse:
+        """Create confirmed structured food analysis response from user-verified dish."""
+        raise NotImplementedError("Dish confirmation is not supported by this provider.")
+

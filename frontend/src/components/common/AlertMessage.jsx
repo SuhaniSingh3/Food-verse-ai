@@ -13,7 +13,7 @@ export default function AlertMessage({ type = 'info', title, message, onDismiss,
       <span style={{ fontSize: '1.15rem' }} aria-hidden="true">{ICONS[type] || 'ℹ️'}</span>
       <div style={{ flex: 1 }}>
         {title && <div style={{ fontWeight: '700', marginBottom: '0.2rem' }}>{title}</div>}
-        <div>{message || children}</div>
+        <div style={{ whiteSpace: 'pre-line', lineHeight: 1.55 }}>{message || children}</div>
       </div>
       {onDismiss && (
         <button

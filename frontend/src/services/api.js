@@ -73,15 +73,18 @@ async function request(endpoint, options = {}) {
 
     if (!response.ok) {
       const isUnavailable = response.status === 404 || response.status === 501;
-      let errorMessage;
+      const backendMessage =
+        (typeof data === 'object' && data?.error?.message) ||
+        (typeof data === 'object' && data?.detail) ||
+        (typeof data === 'object' && data?.message);
 
-      if (isUnavailable) {
-        errorMessage = `Endpoint '${endpoint}' is currently unavailable (HTTP ${response.status}). This feature is scheduled for upcoming phase implementation.`;
+      let errorMessage;
+      if (backendMessage) {
+        errorMessage = backendMessage;
+      } else if (isUnavailable) {
+        errorMessage = `Endpoint '${endpoint}' is currently unavailable (HTTP ${response.status}).`;
       } else {
-        errorMessage =
-          (typeof data === 'object' && data?.detail) ||
-          (typeof data === 'object' && data?.message) ||
-          `HTTP Error ${response.status}: ${response.statusText}`;
+        errorMessage = `HTTP Error ${response.status}: ${response.statusText}`;
       }
 
       throw new ApiError(errorMessage, response.status, data, false, isUnavailable);
@@ -157,6 +160,21 @@ export const api = {
       ...options,
     });
   },
+
+  /**
+   * User Confirmation or Correction of Identified Dish
+   * Submits user-confirmed food name and receives authentic culinary baseline & macros.
+   *
+   * @param {{ confirmed_dish: string, original_prediction?: string, confidence?: number, top_predictions?: Array, user_question?: string }} payload
+   */
+  async confirmFoodDish(payload, options = {}) {
+    return request('/api/food/confirm', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      ...options,
+    });
+  },
+
 
   /**
    * Smart Cooking Assistant & Recipe Synthesis (Core - P0)

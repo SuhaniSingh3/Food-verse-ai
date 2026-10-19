@@ -3,46 +3,36 @@ import { AppProvider } from './context/AppContext';
 import Sidebar from './components/common/Sidebar';
 import Topbar from './components/common/Topbar';
 
-// Page Views
-import DashboardView from './views/DashboardView';
+// Core Features
 import FoodAnalyzerView from './views/FoodAnalyzerView';
 import CookingAssistantView from './views/CookingAssistantView';
 import NutritionPlannerView from './views/NutritionPlannerView';
-import FreshnessCheckerView from './views/FreshnessCheckerView';
-import HygieneAnalyzerView from './views/HygieneAnalyzerView';
 import MealHistoryView from './views/MealHistoryView';
-import AboutProjectView from './views/AboutProjectView';
 
 function AppContent() {
-  const [activeView, setActiveView] = useState('dashboard');
+  const [activeView, setActiveView] = useState('analyzer');
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const renderActiveView = () => {
     switch (activeView) {
-      case 'dashboard':
-        return <DashboardView setActiveView={setActiveView} />;
       case 'analyzer':
         return <FoodAnalyzerView setActiveView={setActiveView} />;
       case 'cooking':
-        return <CookingAssistantView />;
+        return <CookingAssistantView setActiveView={setActiveView} initialTab="generator" />;
+      case 'favorites':
+        return <CookingAssistantView setActiveView={setActiveView} initialTab="favorites" />;
       case 'nutrition':
         return <NutritionPlannerView />;
-      case 'freshness':
-        return <FreshnessCheckerView />;
-      case 'hygiene':
-        return <HygieneAnalyzerView />;
       case 'history':
         return <MealHistoryView setActiveView={setActiveView} />;
-      case 'about':
-        return <AboutProjectView />;
       default:
-        return <DashboardView setActiveView={setActiveView} />;
+        return <FoodAnalyzerView setActiveView={setActiveView} />;
     }
   };
 
   return (
     <div className="app-layout">
-      {/* Responsive Sidebar Navigation */}
+      {/* Responsive Sidebar Navigation with 3 Core Features */}
       <Sidebar
         activeView={activeView}
         setActiveView={setActiveView}
@@ -62,10 +52,19 @@ function AppContent() {
           {renderActiveView()}
         </main>
 
-        <footer style={{ borderTop: '1px solid var(--border-light)', padding: '1.5rem 2rem', textAlign: 'center', fontSize: '0.82rem', color: 'var(--text-muted)', background: '#ffffff' }}>
-          <div>Food Verse AI — NASSCOM FutureSkills Generative AI with Google Cloud Capstone</div>
-          <div style={{ marginTop: '0.25rem', color: 'var(--text-dim)', fontSize: '0.75rem' }}>
-            Multi-Modal Vision • Smart Cooking Assistant • Grounded Nutrition Intelligence • Quality & Hygiene Screeners
+        <footer
+          style={{
+            borderTop: '1px solid var(--border-light)',
+            padding: '1.25rem 2rem',
+            textAlign: 'center',
+            fontSize: '0.82rem',
+            color: 'var(--text-muted)',
+            background: '#ffffff',
+          }}
+        >
+          <div>Food Verse AI — Intelligent Culinary &amp; Nutritional Platform</div>
+          <div style={{ marginTop: '0.2rem', color: 'var(--text-dim)', fontSize: '0.74rem' }}>
+            1. Food Image Analysis • 2. Recipe Generation • 3. Basic Nutrition Information
           </div>
         </footer>
       </div>

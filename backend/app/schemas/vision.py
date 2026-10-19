@@ -3,6 +3,9 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 
 
+from app.schemas.food_analysis import TopFoodPrediction
+
+
 class FoodItem(BaseModel):
     """Decomposed constituent item identified from plate imagery."""
     name: str = Field(..., description="Name of the recognized food or ingredient", example="Grilled Atlantic Salmon")

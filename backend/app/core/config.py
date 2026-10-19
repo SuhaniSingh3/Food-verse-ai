@@ -38,12 +38,20 @@ class Settings(BaseSettings):
     MAX_IMAGE_DIMENSION_PX: int = 2048
     TEMP_UPLOAD_DIR: str = ""
 
+    # Hugging Face Transformers Food-101 Pretrained Model (0 Paid API / 0 Ollama)
+    FOOD101_MODEL_NAME: str = "rajkr/mobilenet-v2-food101"
+
     # AI Provider Settings
-    # Supported values: "vertexai" (Google Cloud Vertex AI), "gemini" (Gemini Developer API), "mock" (Test mode)
-    AI_PROVIDER: str = "mock"
+    # Supported values: "food101" (default pretrained HF model), "transformers", "auto", "mock", "ollama", "gemini", "vertexai"
+    AI_PROVIDER: str = "food101"
+    ALLOW_MOCK_AI: bool = False
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-1.5-flash"
     AI_REQUEST_TIMEOUT_SECONDS: int = 25
+
+    # Local Ollama Settings (100% Free & Local)
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    OLLAMA_MODEL: str = "llama3.2-vision"
 
     # Google Cloud Vertex AI Configuration
     GCP_PROJECT_ID: str = ""
@@ -74,7 +82,7 @@ class Settings(BaseSettings):
     @classmethod
     def validate_provider(cls, v: str) -> str:
         clean = str(v).lower().strip()
-        allowed = ("vertexai", "gemini", "mock")
+        allowed = ("food101", "transformers", "auto", "ollama", "gemini", "vertexai", "mock")
         if clean not in allowed:
             raise ValueError(f"Invalid AI_PROVIDER '{v}'. Must be one of: {', '.join(allowed)}")
         return clean

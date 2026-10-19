@@ -1,22 +1,19 @@
-"""Mock AI vision provider for testing, offline CI/CD, and local frontend preview."""
+"""Mock AI vision provider replaced with the real Food-101 classification provider.
+
+Preserves simulated error hooks for testing while delegating all real predictions
+to the pretrained Hugging Face Food-101 model. Never returns fabricated static output.
+"""
 import asyncio
 from typing import Optional
 from app.ai.base import BaseVisionAIProvider
+from app.ai.food101_provider import Food101ClassificationProvider, Food101ModelManager
+from app.core.config import settings
 from app.core.errors import AIProviderError
-from app.schemas.food_analysis import (
-    IngredientObservation,
-    NutritionEstimate,
-    StructuredFoodAnalysisResponse,
-)
+from app.schemas.food_analysis import StructuredFoodAnalysisResponse
 
 
 class MockVisionAIProvider(BaseVisionAIProvider):
-    """Deterministic, mock provider that strictly follows ethical guardrails:
-    - Distinguishes visible ingredients from inferred culinary guesses.
-    - Explicitly surfaces uncertainties (allergens, unseen layers, dressing ingredients).
-    - Refuses to claim medical certainty or pathogen safety from an image.
-    - Supports simulated failures for testing error branches.
-    """
+    """Replaced Mock Vision Provider that delegates to the real Food-101 Transformers model."""
 
     def __init__(
         self,
@@ -27,14 +24,15 @@ class MockVisionAIProvider(BaseVisionAIProvider):
         self._simulate_timeout = simulate_timeout
         self._simulate_rate_limit = simulate_rate_limit
         self._simulate_error = simulate_error
+        self._real_provider = Food101ClassificationProvider()
 
     @property
     def provider_name(self) -> str:
-        return "mock"
+        return "food101-transformers"
 
     @property
     def model_name(self) -> str:
-        return "mock-gemini-vision-v1"
+        return self._real_provider.model_name
 
     async def analyze_food(
         self,
@@ -42,9 +40,7 @@ class MockVisionAIProvider(BaseVisionAIProvider):
         mime_type: str,
         user_question: Optional[str] = None,
     ) -> StructuredFoodAnalysisResponse:
-        # Simulate slight processing latency (50ms)
-        await asyncio.sleep(0.05)
-
+        # Check simulated test error flags first (for unit test suite)
         if self._simulate_timeout:
             raise AIProviderError(
                 message="Simulated AI model request timeout after 25 seconds.",
@@ -63,118 +59,37 @@ class MockVisionAIProvider(BaseVisionAIProvider):
                 details={"provider": "mock"},
             )
 
-        # Build dynamic answer for user question if supplied
-        q_answer = None
-        if user_question:
-            q_clean = user_question.lower()
-            if "dairy" in q_clean or "lactose" in q_clean:
-                q_answer = (
-                    "Based strictly on visible observations, no direct dairy items (like cheese shreds, butter pats, or cream sauce) are visible. "
-                    "However, marinades or cooking fats might contain dairy solids, which cannot be visually ruled out. Check with the preparer for severe allergies."
-                )
-            elif "gluten" in q_clean or "wheat" in q_clean:
-                q_answer = (
-                    "Quinoa and vegetables are naturally gluten-free in visual appearance. "
-                    "However, soy sauces or cross-contact in kitchen equipment cannot be detected from photography alone."
-                )
-            elif "nut" in q_clean or "peanut" in q_clean:
-                q_answer = (
-                    "No visible nuts or seed garnishes are detected in this portion. "
-                    "However, nut-derived cooking oils or shared fryers cannot be confirmed visually."
-                )
-            else:
-                q_answer = (
-                    f"In response to '{user_question}': Visual inspection confirms visible surface constituents, but hidden seasonings, exact oil varieties, "
-                    f"and preparation subtleties cannot be confirmed without ingredient verification."
+        # Ensure model is initialized
+        manager = Food101ModelManager.get_instance()
+        if not manager.is_loaded:
+            # Attempt loading once if not loaded yet
+            try:
+                manager.load_model(settings.FOOD101_MODEL_NAME)
+            except Exception as e:
+                raise AIProviderError(
+                    message=f"Food-101 model failed to load: {e}. Fabricated mock predictions are prohibited.",
+                    details={"error": str(e)},
                 )
 
-        return StructuredFoodAnalysisResponse(
-            dish_name="Mediterranean Grilled Salmon Bowl",
-            confidence_assessment="High",
-            apparent_preparation_method="Char-grilled fish fillet served over steamed grain bed with freshly sliced raw produce",
-            visible_ingredients=[
-                "Atlantic salmon fillet with distinct dark grill crosshatch marks",
-                "Steamed quinoa grain bed (white and tri-color grains)",
-                "Steamed bright green broccoli florets",
-                "Diced fresh ripe avocado cubes",
-                "Halved fresh red cherry tomatoes",
-                "Fresh chopped flat-leaf parsley garnish"
-            ],
-            potential_ingredients_or_guesses=[
-                "Cooking oil (likely extra virgin olive oil, canola, or butter used during grill searing)",
-                "Salt and freshly cracked black pepper seasoning",
-                "Lemon juice or light vinaigrette dressing on vegetables",
-                "Garlic or herb marinade on the salmon fillet"
-            ],
-            visual_uncertainties_and_ambiguities=[
-                "Exact cooking oil cannot be verified from image; seed oils, olive oil, or butter look identical when absorbed.",
-                "Hidden sauces or marinades beneath the salmon fillet cannot be seen from this angle.",
-                "Allergen presence (cross-contamination, hidden soy in seasonings, dairy in marinade) cannot be ruled out by sight.",
-                "Portion depth and true density cannot be determined with laboratory precision from a 2D photograph.",
-                "Microbial freshness and internal cooking temperature (e.g. 145°F for salmon) cannot be verified visually."
-            ],
-            decomposed_items=[
-                IngredientObservation(
-                    name="Grilled Salmon Fillet",
-                    is_directly_visible=True,
-                    notes="Clear pinkish-orange flesh with char marks",
-                    estimated_grams=180.0
-                ),
-                IngredientObservation(
-                    name="Cooked Quinoa",
-                    is_directly_visible=True,
-                    notes="Visible spiral germ rings characteristic of cooked quinoa",
-                    estimated_grams=120.0
-                ),
-                IngredientObservation(
-                    name="Steamed Broccoli",
-                    is_directly_visible=True,
-                    notes="Intact green florets and tender stalks",
-                    estimated_grams=80.0
-                ),
-                IngredientObservation(
-                    name="Diced Hass Avocado",
-                    is_directly_visible=True,
-                    notes="Firm green-yellow diced cubes",
-                    estimated_grams=50.0
-                ),
-                IngredientObservation(
-                    name="Cherry Tomatoes",
-                    is_directly_visible=True,
-                    notes="Cut fresh red tomato halves",
-                    estimated_grams=40.0
-                ),
-                IngredientObservation(
-                    name="Cooking Oil / Marinade",
-                    is_directly_visible=False,
-                    notes="Inferred from surface sheen on grilled fish and broccoli",
-                    estimated_grams=10.0
-                ),
-                IngredientObservation(
-                    name="Salt & Seasonings",
-                    is_directly_visible=False,
-                    notes="Inferred culinary baseline; cannot measure sodium grams visually",
-                    estimated_grams=2.0
-                ),
-            ],
-            nutritional_estimate=NutritionEstimate(
-                estimated_calories=540,
-                protein_g=41.5,
-                carbs_g=38.0,
-                fat_g=24.5,
-                basis="Visual portion approximation relative to USDA FoodData Central reference density table"
-            ),
-            dietary_tags=["Pescatarian", "High-Protein", "Whole-Food", "Omega-3 Rich"],
+        return await self._real_provider.analyze_food(
+            image_bytes=image_bytes,
+            mime_type=mime_type,
             user_question=user_question,
-            user_question_answer=q_answer,
-            safety_and_allergen_disclaimer=(
-                "Visual analysis cannot confirm hidden ingredients, allergens, food safety, or exact portion weight. "
-                "Never rely on image recognition for medical or severe allergy management."
-            ),
-            provider_metadata={
-                "provider": self.provider_name,
-                "model": self.model_name,
-                "latency_ms": 52.0,
-                "authenticated_via": "Deterministic Mock Provider (Offline / Testing Mode)",
-            }
         )
+
+    def confirm_dish(
+        self,
+        confirmed_dish: str,
+        original_prediction: Optional[str] = None,
+        confidence: Optional[float] = None,
+        top_predictions: Optional[list] = None,
+        user_question: Optional[str] = None,
+    ) -> StructuredFoodAnalysisResponse:
+        return self._real_provider.confirm_dish(
+            confirmed_dish=confirmed_dish,
+            original_prediction=original_prediction,
+            confidence=confidence,
+            top_predictions=top_predictions,
+            user_question=user_question,
+        )
+

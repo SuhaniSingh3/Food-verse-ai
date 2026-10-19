@@ -18,6 +18,15 @@ async def lifespan(app: FastAPI):
         f"Starting {settings.PROJECT_NAME} v{settings.VERSION} "
         f"in [{settings.ENVIRONMENT}] mode (AI Provider: {settings.AI_PROVIDER})"
     )
+    # Preload Food-101 model once on startup
+    if settings.AI_PROVIDER.lower().strip() in ("food101", "transformers", "auto", "mock"):
+        logger.info(f"Initializing Food-101 model ({settings.FOOD101_MODEL_NAME}) once at startup...")
+        try:
+            from app.ai.food101_provider import Food101ModelManager
+            Food101ModelManager.get_instance().load_model(settings.FOOD101_MODEL_NAME)
+        except Exception as e:
+            logger.error(f"Error loading Food-101 model at startup: {e}")
+            # Error is recorded in Food101ModelManager so subsequent requests report a clear error
     yield
     logger.info(f"Shutting down {settings.PROJECT_NAME}")
 

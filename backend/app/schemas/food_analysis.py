@@ -3,6 +3,61 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 
+class TopFoodPrediction(BaseModel):
+    """Predicted food category classification with confidence score."""
+    category: str = Field(
+        ...,
+        description="Formatted human-readable food category name",
+        example="Ramen"
+    )
+    raw_label: str = Field(
+        ...,
+        description="Raw Food-101 dataset class label",
+        example="ramen"
+    )
+    confidence: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Model prediction confidence score between 0.0 and 1.0",
+        example=0.9308
+    )
+    percentage: str = Field(
+        ...,
+        description="Formatted percentage string",
+        example="93.1%"
+    )
+
+
+class DishConfirmationRequest(BaseModel):
+    """Payload submitted when user confirms or corrects the classified food item."""
+    confirmed_dish: str = Field(
+        ...,
+        description="User-selected or entered true food name (e.g., 'Pav Bhaji', 'Poha')",
+        example="Pav Bhaji"
+    )
+    original_prediction: Optional[str] = Field(
+        None,
+        description="Model top prediction candidate that is being confirmed or corrected",
+        example="Ramen"
+    )
+    confidence: Optional[float] = Field(
+        None,
+        ge=0.0,
+        le=1.0,
+        description="Original model confidence score",
+        example=0.3621
+    )
+    top_predictions: Optional[List[TopFoodPrediction]] = Field(
+        default_factory=list,
+        description="Original top 3 predictions to preserve in confirmed response",
+    )
+    user_question: Optional[str] = Field(
+        None,
+        description="Original user inquiry if any",
+    )
+
+
 class IngredientObservation(BaseModel):
     """An ingredient item with strict distinction between direct physical observation and culinary inference."""
     name: str = Field(
@@ -135,6 +190,41 @@ class StructuredFoodAnalysisResponse(BaseModel):
     safety_and_allergen_disclaimer: str = Field(
         default="Visual analysis cannot confirm hidden ingredients, allergens, food safety, or exact portion weight. Never rely on image recognition for medical or severe allergy management.",
         description="Mandatory health & safety disclaimer"
+    )
+    top_predictions: List[TopFoodPrediction] = Field(
+        default_factory=list,
+        description="Top 3 predicted food categories with confidence scores",
+    )
+    regional_disclaimer: str = Field(
+        default="Note: The model is trained on the Food-101 dataset and may not recognize every Indian dish or regional cuisine. Image classification identifies category patterns and does NOT evaluate food freshness, microbial safety, or spoilage.",
+        description="Regional cuisine coverage and food safety limitation notice"
+    )
+    is_confirmed: bool = Field(
+        default=False,
+        description="True if dish identity has been confirmed or corrected by the user",
+        example=False
+    )
+    confirmed_dish: Optional[str] = Field(
+        default=None,
+        description="User-confirmed or corrected dish name",
+        example="Pav Bhaji"
+    )
+    requires_user_confirmation: bool = Field(
+        default=True,
+        description="True if user should confirm or correct the dish before viewing dish-specific details",
+        example=True
+    )
+    confirmation_options: List[str] = Field(
+        default_factory=lambda: [
+            "Pav Bhaji",
+            "Poha",
+            "Samosa",
+            "Dosa",
+            "Idli",
+            "Chole Bhature",
+            "Dal Makhani",
+        ],
+        description="Common regional Indian dishes provided for quick one-click correction",
     )
     provider_metadata: Dict[str, Any] = Field(
         default_factory=dict,

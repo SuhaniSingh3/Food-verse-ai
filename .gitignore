@@ -1,20 +1,47 @@
-# Operating System & IDE Files
-.DS_Store
-Thumbs.db
-.idea/
-.vscode/
-*.swp
-*.swo
+# ==============================================================================
+# Food Verse AI — Master .gitignore
+# Prevents committing secrets, virtualenvs, dependencies, models, and local databases
+# ==============================================================================
 
-# Environment Variables & Secrets (CRITICAL: Never commit .env files)
+# ------------------------------------------------------------------------------
+# 1. Environment Variables, Secrets & Credentials (CRITICAL)
+# ------------------------------------------------------------------------------
 .env
-.env.local
-.env.*.local
+.env.*
 *.env
+*.env.*
+!.env.example
 !*.env.example
+!**/.env.example
 
-# Python
+# Private Keys, Certificates & Cloud Service Account Credentials
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
+service-account*.json
+credentials.json
+client_secret*.json
+
+# ------------------------------------------------------------------------------
+# 2. Python Virtual Environments & Interpreters
+# ------------------------------------------------------------------------------
+venv/
+.venv/
+env/
+.env/
+ENV/
+env.bak/
+venv.bak/
+*/venv/
+*/.venv/
+*/env/
+
+# Python Bytecode, Caches & Distribution Artifacts
 __pycache__/
+*/__pycache__/
 *.py[cod]
 *$py.class
 *.so
@@ -36,17 +63,72 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+*.spec
 
-# Python Virtual Environments
-venv/
-.venv/
-env/
-.env/
-ENV/
-env.bak/
-venv.bak/
+# ------------------------------------------------------------------------------
+# 3. Node.js & Frontend Build Outputs
+# ------------------------------------------------------------------------------
+node_modules/
+*/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+dist/
+dist-ssr/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.turbo/
 
-# Testing & Coverage
+# ------------------------------------------------------------------------------
+# 4. Machine Learning Model Weights, Checkpoints & Caches
+# ------------------------------------------------------------------------------
+*.pt
+*.pth
+*.onnx
+*.bin
+*.safetensors
+*.h5
+*.tflite
+*.ckpt
+*.joblib
+*.pkl
+models/
+*/models/
+checkpoints/
+*/checkpoints/
+.cache/
+*/.cache/
+.huggingface/
+*/.huggingface/
+hf_cache/
+wandb/
+
+# ------------------------------------------------------------------------------
+# 5. Local Databases & User Uploads
+# ------------------------------------------------------------------------------
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Upload & Media Directories
+backend/uploads/
+backend/media/
+backend/data/
+uploads/
+media/
+data/
+storage/
+temp_uploads/
+
+# ------------------------------------------------------------------------------
+# 6. Testing, Coverage, Logs & Diagnostics
+# ------------------------------------------------------------------------------
 .pytest_cache/
 .coverage
 htmlcov/
@@ -55,28 +137,25 @@ htmlcov/
 coverage.xml
 *.cover
 *.py,cover
-
-# Node.js & Frontend
-node_modules/
-frontend/dist/
-frontend/dist-ssr/
-*.local
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-# Database & Uploads
-*.sqlite
-*.sqlite3
-*.db
-backend/uploads/
-backend/media/
-backend/data/
-
-# Temporary & Log files
 *.log
 logs/
 tmp/
+temp/
 scratch/
+
+# ------------------------------------------------------------------------------
+# 7. Operating System & Editor Files
+# ------------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+*~
+*.suo
+*.ntvs*
+*.njsproj
+*.sln

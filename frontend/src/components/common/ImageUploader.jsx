@@ -4,7 +4,7 @@ const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 export default function ImageUploader({
-  selectedImage,
+  _selectedImage,
   previewUrl,
   onImageSelected,
   onImageRemoved,

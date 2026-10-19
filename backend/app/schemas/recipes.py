@@ -53,6 +53,11 @@ class RecipeGenerationRequest(BaseModel):
         description="List of available ingredients in user pantry",
         example=["Salmon", "Quinoa", "Broccoli", "Lemon", "Garlic", "Olive Oil"],
     )
+    dish_name: Optional[str] = Field(
+        default=None,
+        description="Optional confirmed dish name from image analysis (e.g. 'Pav Bhaji')",
+        example="Pav Bhaji",
+    )
     cuisine: Optional[str] = Field(
         default="Any",
         description="Cuisine preference (e.g., Italian, Mexican, Indian, Mediterranean, Asian, Any)",

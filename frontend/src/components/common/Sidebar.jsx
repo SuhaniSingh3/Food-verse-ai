@@ -1,17 +1,17 @@
 import React from 'react';
+import { useApp } from '../../context/AppContext';
 
 const NAV_ITEMS = [
-  { id: 'dashboard', label: 'Dashboard', icon: '📊', section: 'Core Features' },
-  { id: 'analyzer', label: 'Food Analyzer', icon: '📸', section: 'Core Features' },
-  { id: 'cooking', label: 'Cooking Assistant', icon: '👨‍🍳', section: 'Core Features' },
-  { id: 'nutrition', label: 'Nutrition Planner', icon: '🥗', section: 'Core Features' },
-  { id: 'history', label: 'Meal History', icon: '📖', section: 'Core Features' },
-  { id: 'freshness', label: 'Freshness Checker', icon: '🌿', section: 'Optional Modules', isOptional: true },
-  { id: 'hygiene', label: 'Hygiene Screener', icon: '🧼', section: 'Optional Modules', isOptional: true },
-  { id: 'about', label: 'About Project', icon: 'ℹ️', section: 'System & Docs' },
+  { id: 'analyzer', label: 'Food Image Analysis', icon: '📸', desc: 'Multimodal image recognition' },
+  { id: 'cooking', label: 'Recipe Generator', icon: '👨‍🍳', desc: 'Pantry-driven recipes' },
+  { id: 'favorites', label: 'Favorite Recipes', icon: '❤️', desc: 'Saved favorite recipes' },
+  { id: 'nutrition', label: 'Basic Nutrition', icon: '🥗', desc: 'USDA benchmark calculations' },
+  { id: 'history', label: 'Analysis History', icon: '📖', desc: 'Recognition logs & meals' },
 ];
 
 export default function Sidebar({ activeView, setActiveView, isMobileOpen, setIsMobileOpen }) {
+  const { savedRecipes = [] } = useApp();
+
   const handleNavClick = (viewId) => {
     setActiveView(viewId);
     if (isMobileOpen && setIsMobileOpen) {
@@ -19,24 +19,20 @@ export default function Sidebar({ activeView, setActiveView, isMobileOpen, setIs
     }
   };
 
-  // Group items by section
-  const sections = ['Core Features', 'Optional Modules', 'System & Docs'];
-
   return (
     <aside className={`sidebar ${isMobileOpen ? 'mobile-open' : ''}`} aria-label="Main Navigation">
       <div className="sidebar-header">
         <a
-          href="#dashboard"
+          href="#analyzer"
           className="brand-link"
           onClick={(e) => {
             e.preventDefault();
-            handleNavClick('dashboard');
+            handleNavClick('analyzer');
           }}
         >
           <div className="brand-icon-box" aria-hidden="true">🥗</div>
           <div>
             <div className="brand-title">Food Verse AI</div>
-            <div className="brand-sub">NASSCOM / GCP</div>
           </div>
         </a>
         {isMobileOpen && (
@@ -52,37 +48,41 @@ export default function Sidebar({ activeView, setActiveView, isMobileOpen, setIs
       </div>
 
       <nav className="sidebar-nav">
-        {sections.map((sectionName) => {
-          const items = NAV_ITEMS.filter((item) => item.section === sectionName);
-          return (
-            <div key={sectionName}>
-              <div className="nav-section-label">{sectionName}</div>
-              {items.map((item) => {
-                const isActive = activeView === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={`nav-item-btn ${isActive ? 'active' : ''}`}
-                    onClick={() => handleNavClick(item.id)}
-                    aria-current={isActive ? 'page' : undefined}
-                  >
-                    <span className="nav-icon" aria-hidden="true">{item.icon}</span>
-                    <span>{item.label}</span>
-                    {item.isOptional && <span className="nav-tag-opt">Opt</span>}
-                  </button>
-                );
-              })}
-            </div>
-          );
-        })}
+        <div>
+          <div className="nav-section-label">Core Features</div>
+          {NAV_ITEMS.map((item) => {
+            const isActive = activeView === item.id;
+            const isFavItem = item.id === 'favorites';
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={`nav-item-btn ${isActive ? 'active' : ''}`}
+                onClick={() => handleNavClick(item.id)}
+                aria-current={isActive ? 'page' : undefined}
+              >
+                <span className="nav-icon" aria-hidden="true">{item.icon}</span>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                  <span>{item.label}</span>
+                  <span style={{ fontSize: '0.72rem', color: isActive ? 'var(--green-deep)' : 'var(--text-dim)', fontWeight: '400' }}>
+                    {item.desc}
+                  </span>
+                </div>
+                {isFavItem && savedRecipes.length > 0 && (
+                  <span className="nav-tag-opt" aria-label={`${savedRecipes.length} saved favorites`}>
+                    {savedRecipes.length}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </nav>
 
       <div className="sidebar-footer">
-        <div style={{ fontWeight: '600', color: 'var(--text-main)', marginBottom: '0.2rem' }}>
-          GenAI Capstone Project
+        <div style={{ fontWeight: '600', color: 'var(--text-main)' }}>
+          Food Verse AI
         </div>
-        <div>Google Cloud Vertex / Gemini 1.5</div>
       </div>
     </aside>
   );

@@ -31,13 +31,51 @@ export default function MealHistoryView({ setActiveView }) {
     checkBackendMeals();
   }, []);
 
-  // Filtered meals
+  // Filtered meals: reactive immediately as user types, case-insensitive, ignores leading/trailing spaces
+  const cleanQuery = searchQuery.trim().toLowerCase();
+
   const filteredMeals = meals.filter((meal) => {
     const matchesType = filterType === 'All' || meal.mealType === filterType;
+    if (!cleanQuery) {
+      return matchesType;
+    }
+
+    // 1. Food name / dish name
+    const dish = (meal.dishName || '').toLowerCase();
+    const food = (meal.foodName || '').toLowerCase();
+    const matchesFoodName = dish.includes(cleanQuery) || food.includes(cleanQuery);
+
+    // 2. Confirmed food name
+    const confirmed = (meal.confirmedDish || '').toLowerCase();
+    const matchesConfirmedDish = confirmed.includes(cleanQuery);
+
+    // 3. Predicted label
+    const predicted = (meal.predictedLabel || '').toLowerCase();
+    const matchesPredictedLabel = predicted.includes(cleanQuery);
+
+    // 4. Top predictions array (Food-101 classifier results)
+    const matchesTopPredictions =
+      Array.isArray(meal.topPredictions) &&
+      meal.topPredictions.some((p) => {
+        const cat = typeof p === 'string' ? p : (p.category || p.label || '');
+        return cat.toLowerCase().includes(cleanQuery);
+      });
+
+    // 5. Decomposed ingredients
+    const matchesIngredients =
+      Array.isArray(meal.ingredients) &&
+      meal.ingredients.some((ing) => {
+        const name = typeof ing === 'string' ? ing : (ing.name || '');
+        return name.toLowerCase().includes(cleanQuery);
+      });
+
     const matchesSearch =
-      !searchQuery ||
-      meal.dishName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      meal.ingredients?.some((ing) => ing.name.toLowerCase().includes(searchQuery.toLowerCase()));
+      matchesFoodName ||
+      matchesConfirmedDish ||
+      matchesPredictedLabel ||
+      matchesTopPredictions ||
+      matchesIngredients;
+
     return matchesType && matchesSearch;
   });
 
@@ -69,12 +107,21 @@ export default function MealHistoryView({ setActiveView }) {
   };
 
   const confirmClearAll = () => {
-    clearAllMeals();
-    setShowClearAllModal(false);
-    setNotification({
-      type: 'warning',
-      message: 'All meal logs have been cleared from local storage.',
-    });
+    try {
+      clearAllMeals();
+      setSearchQuery('');
+      setShowClearAllModal(false);
+      setNotification({
+        type: 'success',
+        message: 'Analysis history cleared successfully.',
+      });
+    } catch (err) {
+      setShowClearAllModal(false);
+      setNotification({
+        type: 'error',
+        message: `Failed to clear analysis history: ${err.message || 'Unknown error'}`,
+      });
+    }
   };
 
   return (
@@ -103,15 +150,15 @@ export default function MealHistoryView({ setActiveView }) {
           </p>
         </div>
 
-        {meals.length > 0 && (
-          <button
-            type="button"
-            className="btn btn-danger btn-sm"
-            onClick={() => setShowClearAllModal(true)}
-          >
-            🗑️ Clear All History
-          </button>
-        )}
+        <button
+          type="button"
+          className="btn btn-danger btn-sm"
+          onClick={() => setShowClearAllModal(true)}
+          disabled={meals.length === 0}
+          title={meals.length === 0 ? 'No history to clear' : 'Clear all analysis history entries'}
+        >
+          🗑️ Clear History
+        </button>
       </div>
 
       {notification && (
@@ -140,22 +187,68 @@ export default function MealHistoryView({ setActiveView }) {
           </div>
 
           {/* Search Input */}
-          <div style={{ minWidth: '240px', flex: 1, maxWidth: '380px' }}>
+          <div
+            style={{
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+              minWidth: '260px',
+              flex: 1,
+              maxWidth: '420px',
+            }}
+          >
+            <span
+              style={{
+                position: 'absolute',
+                left: '0.75rem',
+                color: 'var(--text-dim)',
+                fontSize: '0.9rem',
+                pointerEvents: 'none',
+              }}
+              aria-hidden="true"
+            >
+              🔍
+            </span>
             <input
+              id="history-search-input"
               type="text"
-              placeholder="Search by dish or ingredient..."
+              placeholder="Search history by food name, predicted label, or confirmed dish..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{
                 width: '100%',
-                padding: '0.45rem 0.85rem',
+                padding: '0.5rem 2.2rem 0.5rem 2.2rem',
                 borderRadius: 'var(--radius-sm)',
                 border: '1px solid var(--border-light)',
+                background: 'var(--bg-card, #fff)',
+                color: 'var(--text-main)',
                 fontFamily: 'inherit',
                 fontSize: '0.88rem',
               }}
-              aria-label="Search meal history"
+              aria-label="Search analysis history"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                id="clear-search-btn"
+                onClick={() => setSearchQuery('')}
+                title="Clear search query"
+                aria-label="Clear search query"
+                style={{
+                  position: 'absolute',
+                  right: '0.6rem',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)',
+                  fontSize: '0.9rem',
+                  padding: '0.2rem 0.4rem',
+                  lineHeight: 1,
+                }}
+              >
+                ✕
+              </button>
+            )}
           </div>
         </div>
 
@@ -171,9 +264,24 @@ export default function MealHistoryView({ setActiveView }) {
               fontSize: '0.82rem',
               color: 'var(--text-muted)',
               flexWrap: 'wrap',
+              alignItems: 'center',
             }}
           >
-            <span>Showing: <strong>{filteredMeals.length} meal(s)</strong></span>
+            <span>
+              Showing: <strong>{filteredMeals.length}</strong> of <strong>{meals.length}</strong> {meals.length === 1 ? 'analysis' : 'analyses'}
+            </span>
+            {cleanQuery && (
+              <span
+                style={{
+                  background: 'var(--bg-subtle, #f3f4f6)',
+                  padding: '0.15rem 0.5rem',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.78rem',
+                }}
+              >
+                Filtered by: "<em>{cleanQuery}</em>"
+              </span>
+            )}
             <span>Filtered Energy: <strong style={{ color: 'var(--green-deep)' }}>{totals.calories} kcal</strong></span>
             <span>Protein: <strong style={{ color: 'var(--orange-primary)' }}>{totals.protein}g</strong></span>
             <span>Carbs: <strong>{totals.carbs}g</strong></span>
@@ -203,14 +311,37 @@ export default function MealHistoryView({ setActiveView }) {
                     />
                   )}
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                      <h3>{meal.dishName}</h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+                      <h3>{meal.dishName || meal.foodName}</h3>
                       <span className="ai-pill-tag">{meal.mealType}</span>
+                      {meal.isConfirmed && (
+                        <span
+                          className="ai-pill-tag"
+                          style={{
+                            background: 'var(--color-success-bg, #ecfdf5)',
+                            color: 'var(--color-success, #059669)',
+                            borderColor: 'var(--green-border, #10b981)',
+                            fontSize: '0.72rem',
+                          }}
+                        >
+                          ✓ Confirmed
+                        </span>
+                      )}
                     </div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
                       Logged on {new Date(meal.timestamp).toLocaleDateString()} at{' '}
                       {new Date(meal.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
+                    {meal.predictedLabel && (
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-dim)', marginTop: '0.25rem' }}>
+                        <span>Predicted label: <strong>{meal.predictedLabel}</strong></span>
+                        {meal.confirmedDish && meal.confirmedDish.toLowerCase() !== meal.predictedLabel.toLowerCase() && (
+                          <span style={{ marginLeft: '0.5rem', color: 'var(--green-deep)' }}>
+                            • Confirmed dish: <strong>{meal.confirmedDish}</strong>
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -265,20 +396,39 @@ export default function MealHistoryView({ setActiveView }) {
         </div>
       ) : (
         <div className="empty-state">
-          <div className="empty-state-icon" aria-hidden="true">📖</div>
-          <h3>No Meals Found</h3>
+          <div className="empty-state-icon" aria-hidden="true">{meals.length === 0 ? '📖' : '🔍'}</div>
+          <h3>{meals.length === 0 ? 'No analysis history yet.' : 'No matching analyses found'}</h3>
           <p>
-            {searchQuery || filterType !== 'All'
-              ? 'No meals matched your search query or filter. Try clearing the filter.'
-              : 'Your meal timeline is empty. Analyze a plate to log your first meal.'}
+            {meals.length === 0
+              ? 'Your analysis history is currently empty. Upload and analyze a food image to record entries.'
+              : cleanQuery
+                ? `No past food analyses match "${searchQuery.trim()}". Check your spelling or try clearing the search.`
+                : `No analyses found for category "${filterType}". Try selecting "All" to view all recorded analyses.`}
           </p>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => setActiveView('analyzer')}
-          >
-            📸 Scan Food in Analyzer
-          </button>
+          {meals.length > 0 && (
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '0.75rem' }}>
+              <button
+                type="button"
+                id="reset-search-btn"
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  setSearchQuery('');
+                  setFilterType('All');
+                }}
+              >
+                Clear Search & Filters
+              </button>
+            </div>
+          )}
+          {meals.length === 0 && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => setActiveView('analyzer')}
+            >
+              📸 Scan Food in Analyzer
+            </button>
+          )}
         </div>
       )}
 
@@ -295,9 +445,10 @@ export default function MealHistoryView({ setActiveView }) {
 
       <ConfirmModal
         isOpen={showClearAllModal}
-        title="Clear Entire Meal History"
-        message="Are you sure you want to delete all historical meal entries? This action cannot be undone."
-        confirmText="Clear All History"
+        title="Clear Analysis History"
+        message="Are you sure you want to clear your analysis history?"
+        confirmText="Clear History"
+        cancelText="Cancel"
         isDanger={true}
         onConfirm={confirmClearAll}
         onCancel={() => setShowClearAllModal(false)}

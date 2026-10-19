@@ -4,62 +4,39 @@ const AppContext = createContext(null);
 
 const STORAGE_KEYS = {
   MEALS: 'foodverse_meals',
-  TARGETS: 'foodverse_targets',
   SAVED_RECIPES: 'foodverse_saved_recipes',
-  FRESHNESS: 'foodverse_freshness',
-  HYGIENE: 'foodverse_hygiene',
 };
-
-const DEFAULT_TARGETS = {
-  calories: 2200,
-  protein_g: 140,
-  carbs_g: 220,
-  fat_g: 65,
-  goal: 'Weight Maintenance & Clean Eating',
-  dietaryRestrictions: ['Low Sodium'],
-};
-
-// Seed initial realistic demonstration meal so dashboard and meal history show the full UI on first launch
-const INITIAL_MEALS = [
-  {
-    id: 'meal_demo_01',
-    dishName: 'Mediterranean Grilled Salmon Bowl',
-    mealType: 'Lunch',
-    timestamp: new Date().toISOString(),
-    imageUrl: '/food_hero.jpg',
-    totalCalories: 580,
-    protein_g: 42,
-    carbs_g: 48,
-    fat_g: 22,
-    ingredients: [
-      { name: 'Grilled Atlantic Salmon', grams: 180, calories: 370, protein: 36, carbs: 0, fat: 22 },
-      { name: 'Cooked Quinoa', grams: 120, calories: 144, protein: 5, carbs: 26, fat: 2 },
-      { name: 'Steamed Broccoli', grams: 80, calories: 28, protein: 2, carbs: 6, fat: 0 },
-      { name: 'Hass Avocado', grams: 45, calories: 72, protein: 1, carbs: 4, fat: 7 },
-    ],
-    confidenceScore: 0.94,
-    notes: 'Identified via Food Verse AI Vision Engine',
-  },
-];
 
 export function AppProvider({ children }) {
+  // Shared state connecting Food Vision, Recipe Generator, and Nutrition Planner
+  // Defaults to empty (Requirement 1: Remove hardcoded demo salmon results from normal application flow)
+  const [pantrySeedItems, setPantrySeedItems] = useState([]);
+  const [nutritionSeedItems, setNutritionSeedItems] = useState([]);
+  const [activeConfirmedDish, setActiveConfirmedDish] = useState(null);
+  const [currentAnalysisResult, setCurrentAnalysisResult] = useState(null);
+  const [dishNutritionReference, setDishNutritionReference] = useState(null);
+
+  // Analysis & Meal History state backed strictly by its own localStorage key (Requirement 10)
   const [meals, setMeals] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.MEALS);
-      return saved ? JSON.parse(saved) : INITIAL_MEALS;
+      return saved ? JSON.parse(saved) : [];
     } catch {
-      return INITIAL_MEALS;
+      return [];
     }
   });
 
-  const [targets, setTargets] = useState(() => {
+  useEffect(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.TARGETS);
-      return saved ? JSON.parse(saved) : DEFAULT_TARGETS;
-    } catch {
-      return DEFAULT_TARGETS;
+      if (meals && meals.length > 0) {
+        localStorage.setItem(STORAGE_KEYS.MEALS, JSON.stringify(meals));
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.MEALS);
+      }
+    } catch (e) {
+      console.warn('Failed to persist meals to localStorage', e);
     }
-  });
+  }, [meals]);
 
   const [savedRecipes, setSavedRecipes] = useState(() => {
     try {
@@ -70,41 +47,6 @@ export function AppProvider({ children }) {
     }
   });
 
-  const [freshnessChecks, setFreshnessChecks] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.FRESHNESS);
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  const [hygieneAudits, setHygieneAudits] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.HYGIENE);
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  // Persist to local storage
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.MEALS, JSON.stringify(meals));
-    } catch (e) {
-      console.warn('Failed to persist meals to localStorage', e);
-    }
-  }, [meals]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.TARGETS, JSON.stringify(targets));
-    } catch (e) {
-      console.warn('Failed to persist targets to localStorage', e);
-    }
-  }, [targets]);
-
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEYS.SAVED_RECIPES, JSON.stringify(savedRecipes));
@@ -113,95 +55,169 @@ export function AppProvider({ children }) {
     }
   }, [savedRecipes]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.FRESHNESS, JSON.stringify(freshnessChecks));
-    } catch (e) {
-      console.warn('Failed to persist freshness checks to localStorage', e);
-    }
-  }, [freshnessChecks]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.HYGIENE, JSON.stringify(hygieneAudits));
-    } catch (e) {
-      console.warn('Failed to persist hygiene audits to localStorage', e);
-    }
-  }, [hygieneAudits]);
-
-  // Aggregate daily consumed macros
-  const consumedToday = meals.reduce(
-    (acc, meal) => ({
-      calories: acc.calories + (meal.totalCalories || 0),
-      protein_g: acc.protein_g + (meal.protein_g || 0),
-      carbs_g: acc.carbs_g + (meal.carbs_g || 0),
-      fat_g: acc.fat_g + (meal.fat_g || 0),
-    }),
-    { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 }
-  );
-
+  // History CRUD operations
   const addMeal = (newMeal) => {
     const mealWithId = {
       ...newMeal,
       id: newMeal.id || `meal_${Date.now()}`,
       timestamp: newMeal.timestamp || new Date().toISOString(),
     };
-    setMeals((prev) => [mealWithId, ...prev]);
+    setMeals((prev) => {
+      const updated = [mealWithId, ...prev.filter((m) => m.id !== mealWithId.id)];
+      try {
+        localStorage.setItem(STORAGE_KEYS.MEALS, JSON.stringify(updated));
+      } catch (e) {
+        console.warn('Failed to save meal to localStorage', e);
+      }
+      return updated;
+    });
   };
 
   const deleteMeal = (id) => {
-    setMeals((prev) => prev.filter((m) => m.id !== id));
+    setMeals((prev) => {
+      const updated = prev.filter((m) => m.id !== id);
+      try {
+        if (updated.length > 0) {
+          localStorage.setItem(STORAGE_KEYS.MEALS, JSON.stringify(updated));
+        } else {
+          localStorage.removeItem(STORAGE_KEYS.MEALS);
+        }
+      } catch (e) {
+        console.warn('Failed to update meals in localStorage', e);
+      }
+      return updated;
+    });
   };
 
+  // Requirement 4 & 10: Clear only the specific history key, do not clear all localStorage
   const clearAllMeals = () => {
+    try {
+      localStorage.removeItem(STORAGE_KEYS.MEALS);
+      localStorage.removeItem('foodverse_analysis_history');
+    } catch (e) {
+      console.warn('Failed to clear meals from localStorage', e);
+    }
     setMeals([]);
   };
 
-  const updateTargets = (newTargets) => {
-    setTargets((prev) => ({ ...prev, ...newTargets }));
+  // Reset lifecycle to prevent stale state across uploads (Requirement 7)
+  const clearAnalysisState = () => {
+    setCurrentAnalysisResult(null);
+    setActiveConfirmedDish(null);
+    setDishNutritionReference(null);
+    setPantrySeedItems([]);
+    setNutritionSeedItems([]);
+  };
+
+  const setConfirmedDishData = (dishName, ingredients, nutritionItems, nutritionSummary) => {
+    setActiveConfirmedDish(dishName);
+    if (ingredients) setPantrySeedItems(ingredients);
+    if (nutritionItems) setNutritionSeedItems(nutritionItems);
+    if (nutritionSummary) setDishNutritionReference(nutritionSummary);
+  };
+
+  const isFavoriteRecipe = (recipeOrId) => {
+    if (!recipeOrId) return false;
+    const targetId = typeof recipeOrId === 'string' ? recipeOrId : recipeOrId.id;
+    const targetTitle = typeof recipeOrId === 'object' && recipeOrId.title ? recipeOrId.title.trim().toLowerCase() : null;
+
+    return savedRecipes.some((r) => {
+      if (targetId && r.id && r.id === targetId) return true;
+      if (targetTitle && r.title && r.title.trim().toLowerCase() === targetTitle) return true;
+      return false;
+    });
   };
 
   const saveRecipe = (recipe) => {
-    if (!savedRecipes.some((r) => r.id === recipe.id)) {
-      setSavedRecipes((prev) => [recipe, ...prev]);
+    if (!recipe) return false;
+    if (isFavoriteRecipe(recipe)) {
+      return false; // Prevent duplicates (Requirement 5)
     }
+
+    const recipeId = recipe.id || `recipe_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const recipeToSave = {
+      ...recipe,
+      id: recipeId,
+      savedAt: recipe.savedAt || new Date().toISOString(),
+    };
+
+    setSavedRecipes((prev) => {
+      if (prev.some((r) => (recipeToSave.id && r.id === recipeToSave.id) || (recipeToSave.title && r.title && r.title.trim().toLowerCase() === recipeToSave.title.trim().toLowerCase()))) {
+        return prev;
+      }
+      const updated = [recipeToSave, ...prev];
+      try {
+        localStorage.setItem(STORAGE_KEYS.SAVED_RECIPES, JSON.stringify(updated));
+      } catch (e) {
+        console.warn('Failed to persist saved recipes to localStorage', e);
+      }
+      return updated;
+    });
+    return true;
   };
 
-  const removeRecipe = (id) => {
-    setSavedRecipes((prev) => prev.filter((r) => r.id !== id));
+  const removeRecipe = (idOrRecipe) => {
+    if (!idOrRecipe) return;
+    const targetId = typeof idOrRecipe === 'string' ? idOrRecipe : idOrRecipe.id;
+    const targetTitle = typeof idOrRecipe === 'object' && idOrRecipe.title ? idOrRecipe.title.trim().toLowerCase() : null;
+
+    setSavedRecipes((prev) => {
+      const updated = prev.filter((r) => {
+        if (targetId && r.id && r.id === targetId) return false;
+        if (targetTitle && r.title && r.title.trim().toLowerCase() === targetTitle) return false;
+        return true;
+      });
+      try {
+        localStorage.setItem(STORAGE_KEYS.SAVED_RECIPES, JSON.stringify(updated));
+      } catch (e) {
+        console.warn('Failed to update saved recipes in localStorage', e);
+      }
+      return updated;
+    });
   };
 
-  const addFreshnessCheck = (check) => {
-    setFreshnessChecks((prev) => [{ ...check, id: `fresh_${Date.now()}` }, ...prev]);
-  };
-
-  const addHygieneAudit = (audit) => {
-    setHygieneAudits((prev) => [{ ...audit, id: `hyg_${Date.now()}` }, ...prev]);
+  const toggleFavorite = (recipe) => {
+    if (!recipe) return false;
+    if (isFavoriteRecipe(recipe)) {
+      removeRecipe(recipe);
+      return false;
+    } else {
+      saveRecipe(recipe);
+      return true;
+    }
   };
 
   return (
     <AppContext.Provider
       value={{
-        meals,
-        targets,
-        consumedToday,
+        pantrySeedItems,
+        setPantrySeedItems,
+        nutritionSeedItems,
+        setNutritionSeedItems,
+        activeConfirmedDish,
+        setActiveConfirmedDish,
+        currentAnalysisResult,
+        setCurrentAnalysisResult,
+        dishNutritionReference,
+        setDishNutritionReference,
+        clearAnalysisState,
+        setConfirmedDishData,
         savedRecipes,
-        freshnessChecks,
-        hygieneAudits,
+        saveRecipe,
+        removeRecipe,
+        toggleFavorite,
+        isFavoriteRecipe,
+        meals,
         addMeal,
         deleteMeal,
         clearAllMeals,
-        updateTargets,
-        saveRecipe,
-        removeRecipe,
-        addFreshnessCheck,
-        addHygieneAudit,
       }}
     >
       {children}
     </AppContext.Provider>
   );
 }
+
 
 export function useApp() {
   const context = useContext(AppContext);
