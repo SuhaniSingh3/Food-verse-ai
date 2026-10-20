@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext';
 
 const NAV_ITEMS = [
   { id: 'analyzer', label: 'Food Image Analysis', icon: '📸', desc: 'Multimodal image recognition' },
+  { id: 'pantry', label: 'Cook With Ingredients', icon: '🥘', desc: 'Match recipes to your pantry' },
   { id: 'cooking', label: 'Recipe Generator', icon: '👨‍🍳', desc: 'Pantry-driven recipes' },
   { id: 'favorites', label: 'Favorite Recipes', icon: '❤️', desc: 'Saved favorite recipes' },
   { id: 'nutrition', label: 'Basic Nutrition', icon: '🥗', desc: 'USDA benchmark calculations' },

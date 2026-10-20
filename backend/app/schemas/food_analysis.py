@@ -123,6 +123,11 @@ class StructuredFoodAnalysisResponse(BaseModel):
         description="Identified culinary preparation or likely dish name",
         example="Mediterranean Grilled Salmon Bowl"
     )
+    confirmed_dish: Optional[str] = Field(
+        None,
+        description="User-confirmed or corrected dish name if applicable",
+        example="Momos with Red Chutney"
+    )
     confidence_assessment: str = Field(
         ...,
         description="Qualitative confidence rating: 'High', 'Moderate', or 'Low' based on visual clarity",

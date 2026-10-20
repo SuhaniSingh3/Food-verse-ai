@@ -332,8 +332,27 @@ class RecipeGenerator:
                 },
             )
 
-        # 2. Dynamic synthesis for arbitrary pantry ingredients (strictly never injects salmon for unrelated foods)
-        pantry = [i.strip() for i in request.ingredients if i.strip()]
+        # 2. Sanitize pantry ingredients: eliminate placeholder phrases (Requirement 5)
+        def _sanitize_pantry_label(label: str) -> str:
+            cleaned = label.strip()
+            # Strip "Primary " prefix
+            if cleaned.lower().startswith("primary "):
+                cleaned = cleaned[8:].strip()
+            # Strip trailing placeholder suffixes
+            for suffix in (" portion", " core serving", " main component", " main serving", " serving"):
+                if cleaned.lower().endswith(suffix):
+                    cleaned = cleaned[:-len(suffix)].strip()
+            low = cleaned.lower()
+            if "characteristic garnish" in low or "surface texture" in low:
+                return "Fresh Culinary Herbs & Aromatics"
+            if "accompanying base" in low or "side elements" in low or "side condiments" in low:
+                return "Accompanying Culinary Side"
+            if "cooking fat & seasoning" in low or "cooking fat & spices" in low:
+                return "Cooking Oil & Seasoning"
+            return cleaned or "Pantry Ingredient"
+
+        pantry = [_sanitize_pantry_label(i) for i in request.ingredients if i.strip()]
+        pantry = [i for i in pantry if i]
         if not pantry:
             raise AIProviderError(
                 message="No valid pantry ingredients provided for recipe synthesis.",
@@ -361,7 +380,7 @@ class RecipeGenerator:
                 name=lead_ingredient,
                 amount=round(120.0 * servings, 1),
                 unit="g",
-                notes="Freshly prepped and trimmed",
+                notes="Freshly prepped and measured",
             )
         ]
 
@@ -383,10 +402,51 @@ class RecipeGenerator:
         prep_time = max(5, int(target_cook * 0.35))
         actual_cook = max(5, target_cook - prep_time)
 
+        # Requirement 6: If dish cannot be matched to verified food-specific recipes,
+        # provide a clearly labeled fallback recipe rather than pretending it is personalized.
+        is_unverified_dish = bool(request.dish_name and request.dish_name.strip())
+        dish_label = request.dish_name.strip() if is_unverified_dish else lead_ingredient
+
+        if is_unverified_dish:
+            recipe_1_title = f"Culinary Kitchen Preparation Guide (Fallback for {dish_label})"
+            recipe_1_desc = (
+                f"A verified authentic recipe for '{dish_label}' is not currently available in the catalogue. "
+                f"This clearly labeled culinary fallback guide outlines safe, general kitchen preparation using your available ingredients."
+            )
+            recipe_1_steps = [
+                f"Inspect and prepare {lead_ingredient}: wash produce thoroughly under clean running water, trim any damaged parts, and measure all ingredients.",
+                "Prep aromatics and seasonings: peel and finely chop aromatics on a clean cutting board.",
+                "Warm cooking vessel: heat a suitable skillet, pan, or saucepan over medium heat with cooking oil or broth.",
+                f"Sauté aromatics ({', '.join(safe_secondary[:2]) or 'seasonings'}) gently for 1-2 minutes until fragrant without scorching.",
+                f"Incorporate {lead_ingredient} and secondary ingredients; cook thoroughly until tender and safe food temperatures are reached.",
+                f"Season to taste with salt, herbs, and spices, then divide evenly across {servings} serving portion(s) and serve warm.",
+            ]
+            recipe_1_tags = [dietary, "Culinary Fallback", "General Guide", f"{cuisine} Style"]
+            disclaimer_msg = (
+                f"Authentic recipe instructions for '{dish_label}' could not be dynamically verified. "
+                "A clearly labeled general culinary fallback guide is provided instead."
+            )
+        else:
+            recipe_1_title = f"{cuisine} Sautéed {lead_ingredient} Medley"
+            recipe_1_desc = f"A flavorful, zero-waste {cuisine.lower()} preparation combining {lead_ingredient} with aromatic pantry seasonings."
+            recipe_1_steps = [
+                f"Prepare {lead_ingredient}: inspect, wash, and cut into suitable portions for even cooking.",
+                "Heat cooking oil in a wide heavy-bottomed skillet over medium-high heat until shimmering.",
+                f"Add aromatics ({', '.join(safe_secondary[:2]) or 'seasonings'}) and sauté for 1-2 minutes until fragrant.",
+                f"Add {lead_ingredient} and cook evenly, stirring occasionally for {actual_cook} minutes until tender and cooked through.",
+                "Remove from heat and let rest for 2 minutes before serving.",
+                f"Divide evenly across {servings} serving plate(s) and garnish with fresh herbs or citrus.",
+            ]
+            recipe_1_tags = [dietary, "Zero-Waste", f"{cuisine} Style"]
+            disclaimer_msg = (
+                "Recipe recommendations are generated for culinary inspiration. "
+                "Verify all packaged ingredients for potential allergens and food safety temperatures."
+            )
+
         recipe_1 = RecipeItem(
             id=f"recipe_{lead_ingredient.lower().replace(' ', '_')}_skillet",
-            title=f"{cuisine} Sautéed {lead_ingredient} Skillet",
-            description=f"A flavorful, zero-waste {cuisine.lower()} preparation highlighting {lead_ingredient} with aromatic pantry seasonings.",
+            title=recipe_1_title,
+            description=recipe_1_desc,
             cuisine=cuisine,
             difficulty=difficulty,
             prep_time_minutes=prep_time,
@@ -394,14 +454,7 @@ class RecipeGenerator:
             base_servings=servings,
             servings=servings,
             ingredient_quantities=base_quantities_1,
-            preparation_steps=[
-                f"Prepare {lead_ingredient}: rinse, pat dry, and slice into uniform portions for even cooking.",
-                f"Heat cooking oil in a wide heavy-bottomed skillet over medium-high heat until shimmering.",
-                f"Add aromatics ({', '.join(safe_secondary[:2]) or 'seasonings'}) and sauté for 1 minute until fragrant.",
-                f"Carefully add {lead_ingredient} and cook undisturbed for {max(3, actual_cook // 2)} minutes until golden.",
-                f"Turn and finish cooking through. Remove from heat and rest 2 minutes before serving.",
-                f"Divide evenly across {servings} serving plate(s) and garnish with remaining herbs or citrus.",
-            ],
+            preparation_steps=recipe_1_steps,
             substitutions=[
                 RecipeSubstitution(
                     original=lead_ingredient,
@@ -414,7 +467,7 @@ class RecipeGenerator:
                     notes="Provides high smoke point cooking medium",
                 ),
             ],
-            dietary_tags=[dietary, "Zero-Waste", f"{cuisine} Style"],
+            dietary_tags=recipe_1_tags,
             allergens_flagged=[],
             allergen_advisory=(
                 "Culinary suggestions are inspirational. Always verify manufactured ingredient packaging for "
@@ -426,7 +479,7 @@ class RecipeGenerator:
             fat_g=16.0,
         )
 
-        # Recipe 2: Quick Roasted or Tossed Medley
+        # Recipe 2: Secondary Quick Roasted or Tossed Medley
         base_quantities_2: List[RecipeIngredientQuantity] = [
             RecipeIngredientQuantity(
                 name=lead_ingredient,
@@ -445,10 +498,33 @@ class RecipeGenerator:
                 )
             )
 
+        if is_unverified_dish:
+            recipe_2_title = f"Simple Kitchen Tossed Bowl (Fallback for {dish_label})"
+            recipe_2_desc = f"Secondary culinary fallback preparation guide for {dish_label} using available pantry produce and seasonings."
+            recipe_2_steps = [
+                f"Inspect and cut {lead_ingredient} and secondary produce into bite-sized pieces.",
+                "Toss with olive oil or cooking oil, sea salt, and ground black pepper until evenly coated.",
+                f"Sauté in a preheated pan or roast in an oven preheated to 400°F (200°C) for {actual_cook} minutes until tender.",
+                "Check tenderness, adjust seasoning to taste with fresh lemon or herbs.",
+                f"Assemble into {servings} serving bowl(s) and serve warm.",
+            ]
+            recipe_2_tags = [dietary, "Culinary Fallback", "Quick & Easy"]
+        else:
+            recipe_2_title = f"Golden {cuisine} {lead_ingredient} & Herb Medley Bowl"
+            recipe_2_desc = f"Nutrient-dense {lead_ingredient} bowl tossed with pan-caramelized vegetables and a zesty finish."
+            recipe_2_steps = [
+                f"Cut {lead_ingredient} and secondary vegetables into bite-sized pieces.",
+                "Toss with olive oil, salt, and pepper until evenly coated.",
+                f"Sauté in a preheated pan or roast in an oven preheated to 400°F (200°C) for {actual_cook} minutes.",
+                "Check tenderness and season to taste.",
+                f"Assemble into {servings} serving bowl(s) and serve hot.",
+            ]
+            recipe_2_tags = [dietary, "Quick & Easy", "Whole-Food"]
+
         recipe_2 = RecipeItem(
             id=f"recipe_{lead_ingredient.lower().replace(' ', '_')}_bowl",
-            title=f"Golden {cuisine} {lead_ingredient} & Herb Medley Bowl",
-            description=f"Nutrient-dense {lead_ingredient} bowl tossed with pan-caramelized vegetables and a zesty finish.",
+            title=recipe_2_title,
+            description=recipe_2_desc,
             cuisine=cuisine,
             difficulty="Beginner",
             prep_time_minutes=prep_time,
@@ -456,13 +532,7 @@ class RecipeGenerator:
             base_servings=servings,
             servings=servings,
             ingredient_quantities=base_quantities_2,
-            preparation_steps=[
-                f"Chop {lead_ingredient} and secondary vegetables into bite-sized medallions.",
-                "Toss with olive oil, salt, and pepper until evenly coated.",
-                f"Sauté in a preheated pan or roast in an oven preheated to 400°F (200°C) for {actual_cook} minutes.",
-                f"Check tenderness and season to taste.",
-                f"Assemble into {servings} serving bowl(s) and serve hot.",
-            ],
+            preparation_steps=recipe_2_steps,
             substitutions=[
                 RecipeSubstitution(
                     original=lead_ingredient,
@@ -470,7 +540,7 @@ class RecipeGenerator:
                     notes="Direct alternative protein swap",
                 )
             ],
-            dietary_tags=[dietary, "Quick & Easy", "Whole-Food"],
+            dietary_tags=recipe_2_tags,
             allergens_flagged=[],
             allergen_advisory=(
                 "Culinary suggestions are inspirational. Always verify manufactured ingredient packaging for "
@@ -487,7 +557,7 @@ class RecipeGenerator:
         return RecipeGenerationResponse(
             recipes=[recipe_1, recipe_2],
             matched_ingredients_count=len(pantry),
-            disclaimer="Recipe recommendations are generated for culinary inspiration. Verify all packaged ingredients for potential allergens and food safety temperatures.",
+            disclaimer=disclaimer_msg,
             provider_metadata={
                 "provider": "dynamic-recipe-synthesizer",
                 "model": "catalogue-guided-v2",

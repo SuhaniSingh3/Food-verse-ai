@@ -2,6 +2,7 @@ import React from 'react';
 
 const VIEW_TITLES = {
   analyzer: { title: 'Food Image Analysis', sub: 'Multimodal Vision Engine' },
+  pantry: { title: 'Cook With Ingredients You Have', sub: 'Pantry-to-Plate Recipe Matcher' },
   cooking: { title: 'Recipe Generation', sub: 'Pantry-to-Plate Assistant' },
   favorites: { title: 'Favorite Recipes', sub: 'Saved Culinary Collection' },
   nutrition: { title: 'Basic Nutrition Information', sub: 'Verified USDA Benchmark Engine' },

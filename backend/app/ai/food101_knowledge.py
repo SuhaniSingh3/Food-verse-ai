@@ -333,6 +333,72 @@ CULINARY_PROFILES: Dict[str, dict] = {
         "macros": (310, 5.0, 36.0, 16.0),
         "tags": ["Indian Cuisine", "Vegetarian", "Street Food", "Snack"],
     },
+    "momos_with_red_chutney": {
+        "method": "Delicately pleated flour dumplings filled with seasoned minced vegetables or savory chicken, steamed until translucent and tender (or pan-seared Kothey style), served hot with fiery roasted tomato, garlic, and dried red chili dipping chutney",
+        "visible": [
+            "Steamed flour dumpling wrappers (momos)",
+            "Finely minced seasoned vegetable filling (cabbage, carrots, onions)",
+            "Fiery red tomato-garlic chili dipping chutney",
+            "Chopped spring onions / scallion garnish"
+        ],
+        "inferred": [
+            "Fresh minced ginger, garlic, and green chilies",
+            "Dark soy sauce and toasted sesame oil in filling",
+            "Black pepper and salt seasoning",
+            "Boiled dried red chilies, garlic, and vinegar in dipping chutney"
+        ],
+        "items": [
+            ("Steamed Momos / Dumplings", True, "Thin maida wrappers with savory vegetable filling", 160.0),
+            ("Fiery Red Chutney", True, "Spicy garlic, dried red chili, and tomato dipping sauce", 40.0),
+            ("Filling Aromatics & Seasoning", False, "Inferred ginger, garlic, spring onions, soy sauce, and sesame oil", 15.0),
+        ],
+        "macros": (290, 8.0, 48.0, 6.5),
+        "tags": ["Tibetan / Himalayan Cuisine", "Street Food Favorite", "Steamed Dumplings", "Vegetarian Option"],
+    },
+    "momos": {
+        "method": "Delicately pleated flour dumplings filled with seasoned minced vegetables or savory chicken, steamed until translucent and tender (or pan-seared Kothey style), served hot with fiery roasted tomato, garlic, and dried red chili dipping chutney",
+        "visible": [
+            "Steamed flour dumpling wrappers (momos)",
+            "Finely minced seasoned vegetable filling (cabbage, carrots, onions)",
+            "Fiery red tomato-garlic chili dipping chutney",
+            "Chopped spring onions / scallion garnish"
+        ],
+        "inferred": [
+            "Fresh minced ginger, garlic, and green chilies",
+            "Dark soy sauce and toasted sesame oil in filling",
+            "Black pepper and salt seasoning",
+            "Boiled dried red chilies, garlic, and vinegar in dipping chutney"
+        ],
+        "items": [
+            ("Steamed Momos / Dumplings", True, "Thin maida wrappers with savory vegetable filling", 160.0),
+            ("Fiery Red Chutney", True, "Spicy garlic, dried red chili, and tomato dipping sauce", 40.0),
+            ("Filling Aromatics & Seasoning", False, "Inferred ginger, garlic, spring onions, soy sauce, and sesame oil", 15.0),
+        ],
+        "macros": (290, 8.0, 48.0, 6.5),
+        "tags": ["Tibetan / Himalayan Cuisine", "Street Food Favorite", "Steamed Dumplings", "Vegetarian Option"],
+    },
+    "momo": {
+        "method": "Delicately pleated flour dumplings filled with seasoned minced vegetables or savory chicken, steamed until translucent and tender (or pan-seared Kothey style), served hot with fiery roasted tomato, garlic, and dried red chili dipping chutney",
+        "visible": [
+            "Steamed flour dumpling wrappers (momos)",
+            "Finely minced seasoned vegetable filling (cabbage, carrots, onions)",
+            "Fiery red tomato-garlic chili dipping chutney",
+            "Chopped spring onions / scallion garnish"
+        ],
+        "inferred": [
+            "Fresh minced ginger, garlic, and green chilies",
+            "Dark soy sauce and toasted sesame oil in filling",
+            "Black pepper and salt seasoning",
+            "Boiled dried red chilies, garlic, and vinegar in dipping chutney"
+        ],
+        "items": [
+            ("Steamed Momos / Dumplings", True, "Thin maida wrappers with savory vegetable filling", 160.0),
+            ("Fiery Red Chutney", True, "Spicy garlic, dried red chili, and tomato dipping sauce", 40.0),
+            ("Filling Aromatics & Seasoning", False, "Inferred ginger, garlic, spring onions, soy sauce, and sesame oil", 15.0),
+        ],
+        "macros": (290, 8.0, 48.0, 6.5),
+        "tags": ["Tibetan / Himalayan Cuisine", "Street Food Favorite", "Steamed Dumplings", "Vegetarian Option"],
+    },
     "chicken_curry": {
         "method": "Tender chicken simmered in a spiced onion, tomato, ginger, garlic, and aromatic masala gravy",
         "visible": [
@@ -575,18 +641,18 @@ def get_culinary_profile(dish_identifier: str) -> dict:
     return {
         "method": f"Traditional preparation of {dish_title} following standard culinary techniques and regional seasonings",
         "visible": [
-            f"Primary {dish_title} portion",
-            "Characteristic garnish and surface texture",
-            "Accompanying base or side elements"
+            f"{dish_title} Main Component",
+            "Fresh Herbs & Seasoning Garnish",
+            "Accompanying Side Condiments"
         ],
         "inferred": [
             "Cooking oil, butter, or culinary fat",
-            "Salt, pepper, and regional herb seasoning",
-            "Underlying marinades or cooking base"
+            "Salt, pepper, and regional spices",
+            "Aromatic base and marinades"
         ],
         "items": [
-            (f"{dish_title} Core Serving", True, f"Primary portion of {dish_title}", 160.0),
-            ("Accompanying Produce / Garnish", True, "Fresh herbs or side vegetables", 30.0),
+            (f"{dish_title} Main Serving", True, f"Standard portion of {dish_title}", 160.0),
+            ("Fresh Herbs & Produce Garnish", True, "Fresh herbs or side vegetables", 30.0),
             ("Cooking Fat & Seasoning", False, "Inferred preparation fat and seasonings", 12.0),
         ],
         "macros": (390, 15.0, 42.0, 18.0),

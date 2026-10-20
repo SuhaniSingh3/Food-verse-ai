@@ -34,6 +34,16 @@ class SensitiveDataFilter(logging.Filter):
         return True
 
 
+class SafeStreamHandler(logging.StreamHandler):
+    """Stream handler that safely ignores flush errors on Windows anonymous pipes."""
+
+    def flush(self) -> None:
+        try:
+            super().flush()
+        except OSError:
+            pass
+
+
 def setup_logging() -> logging.Logger:
     """Configure application logging with secret scrubbing."""
     log_level = logging.DEBUG if settings.DEBUG else logging.INFO
@@ -42,7 +52,7 @@ def setup_logging() -> logging.Logger:
         datefmt="%Y-%m-%d %H:%M:%S"
     )
 
-    handler = logging.StreamHandler()
+    handler = SafeStreamHandler()
     handler.setLevel(log_level)
     handler.setFormatter(formatter)
     handler.addFilter(SensitiveDataFilter())

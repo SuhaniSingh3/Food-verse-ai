@@ -3,15 +3,24 @@ from app.ai.recipe_generator import RecipeGenerator
 from app.core.errors import MediaValidationError
 from app.core.logging import logger
 from app.schemas.recipes import (
+    CookWithIngredientsRequest,
+    CookWithIngredientsResponse,
     RecipeGenerationRequest,
     RecipeGenerationResponse,
     RecipeIngredientQuantity,
     RecipeItem,
 )
+from app.services.pantry_matcher import PantryMatcher
 
 
 class RecipeService:
     """Service orchestrating pantry-based recipe generation and portion scaling."""
+
+    @classmethod
+    def cook_with_ingredients(cls, request: CookWithIngredientsRequest) -> CookWithIngredientsResponse:
+        """Find and rank curated recipes matching available pantry items and constraints."""
+        return PantryMatcher.match_pantry_ingredients(request)
+
 
     @classmethod
     async def generate_recipes(cls, request: RecipeGenerationRequest) -> RecipeGenerationResponse:

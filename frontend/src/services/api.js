@@ -177,6 +177,20 @@ export const api = {
 
 
   /**
+   * Cook With Ingredients You Have
+   * Matches and ranks curated recipes based on available pantry items, dietary preference, and max cooking time.
+   *
+   * @param {{ ingredients: string[], dietary_preference?: string, max_cook_time_minutes?: number }} payload
+   */
+  async cookWithIngredients(payload, options = {}) {
+    return request('/api/recipes/cook-with-ingredients', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      ...options,
+    });
+  },
+
+  /**
    * Smart Cooking Assistant & Recipe Synthesis (Core - P0)
    * Generates tailored zero-waste recipes from available ingredients.
    *

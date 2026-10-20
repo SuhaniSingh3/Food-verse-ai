@@ -9,6 +9,11 @@ class RecipeIngredientQuantity(BaseModel):
     amount: float = Field(..., ge=0, description="Numerical quantity", example=200.0)
     unit: str = Field(..., description="Measurement unit (e.g., g, ml, tbsp, tsp, cup, piece, cloves)", example="g")
     notes: Optional[str] = Field(None, description="Culinary prep note (e.g., 'diced', 'minced', 'skin-on')", example="skin-on, patted dry")
+    is_available: bool = Field(default=False, description="Authoritative availability status against user pantry")
+    matched_by: Optional[str] = Field(default=None, description="Pantry ingredient that matched this recipe ingredient")
+    available_components: List[str] = Field(default_factory=list, description="Available sub-components if grouped")
+    missing_components: List[str] = Field(default_factory=list, description="Missing sub-components if grouped")
+
 
 
 class RecipeSubstitution(BaseModel):
@@ -112,3 +117,48 @@ class RecipeGenerationResponse(BaseModel):
         default_factory=dict,
         description="Metadata on AI provider, model version, and generation latency"
     )
+
+
+class CookWithIngredientsRequest(BaseModel):
+    """Input payload to find recipes matching available pantry items."""
+    ingredients: List[str] = Field(
+        ...,
+        min_length=1,
+        max_length=50,
+        description="List of ingredients available in the user's pantry",
+        example=["Potatoes", "Onions", "Tomatoes", "Butter"],
+    )
+    dietary_preference: Optional[str] = Field(
+        default="no_restriction",
+        description="Dietary filter: 'no_restriction', 'vegetarian', or 'vegan'",
+        example="vegetarian",
+    )
+    max_cook_time_minutes: Optional[int] = Field(
+        default=None,
+        ge=1,
+        le=240,
+        description="Optional maximum cooking time in minutes",
+        example=30,
+    )
+
+
+class MatchedRecipeItem(BaseModel):
+    """A matched recipe item ranked by ingredient coverage."""
+    recipe: RecipeItem
+    match_percentage: float = Field(..., ge=0.0, le=100.0, description="Percentage of required recipe ingredients available")
+    matched_ingredients_count: int = Field(..., ge=0, description="Number of required ingredients matched")
+    total_recipe_ingredients_count: int = Field(..., ge=1, description="Total ingredients required by recipe")
+    available_ingredients: List[str] = Field(..., description="Recipe ingredients the user has")
+    missing_ingredients: List[str] = Field(..., description="Recipe ingredients the user is missing")
+    can_make_now: bool = Field(..., description="True only if zero ingredients are missing")
+    supported_substitutions: List[RecipeSubstitution] = Field(default_factory=list, description="Supported substitutions for missing items")
+
+
+class CookWithIngredientsResponse(BaseModel):
+    """Output payload for Cook With Ingredients search."""
+    total_matched: int = Field(..., ge=0, description="Total number of matching recipes found")
+    query_ingredients: List[str] = Field(..., description="Sanitized list of query ingredients")
+    dietary_preference: str = Field(..., description="Applied dietary constraint")
+    max_cook_time_minutes: Optional[int] = Field(None, description="Applied cooking time constraint")
+    recipes: List[MatchedRecipeItem] = Field(default_factory=list, description="Ranked list of matching recipes")
+    message: str = Field(..., description="Helpful summary or empty state guidance")

@@ -161,6 +161,7 @@ export default function FoodAnalyzerView({ setActiveView }) {
     setNutritionSeedItems,
     clearAnalysisState,
     setConfirmedDishData,
+    setActiveConfirmedDish,
     setCurrentAnalysisResult,
     addMeal,
   } = useApp();
@@ -403,6 +404,10 @@ export default function FoodAnalyzerView({ setActiveView }) {
     const names = decomposedItems.map((item) => item.name).filter(Boolean);
     if (names.length > 0 && setPantrySeedItems) {
       setPantrySeedItems(names);
+    }
+    const currentDishName = analysisResult.confirmed_dish || analysisResult.dish_name;
+    if (currentDishName && setActiveConfirmedDish) {
+      setActiveConfirmedDish(currentDishName);
     }
     setActiveView('cooking');
   };
@@ -1382,7 +1387,7 @@ export default function FoodAnalyzerView({ setActiveView }) {
                       className="btn btn-secondary"
                       onClick={handleUseInCookingAssistant}
                     >
-                      👨‍🍳 Generate Recipes for {analysisResult.confirmed_dish}
+                      👨‍🍳 Generate Recipes for {analysisResult.confirmed_dish || analysisResult.dish_name}
                     </button>
                     <button
                       type="button"

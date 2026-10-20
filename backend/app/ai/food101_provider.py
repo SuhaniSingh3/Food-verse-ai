@@ -5,11 +5,20 @@ on uploaded image bytes to return top-3 predicted food categories with confidenc
 Never returns fabricated mock predictions or silently falls back.
 """
 import io
+import os
 import time
 from typing import List, Optional
 from PIL import Image
 import torch
+import transformers
 from transformers import AutoImageProcessor, AutoModelForImageClassification
+
+# Disable tqdm and Hugging Face interactive progress bars to prevent Windows anonymous pipe flush errors (OSError Errno 22)
+os.environ["TQDM_DISABLE"] = "1"
+try:
+    transformers.utils.logging.disable_progress_bar()
+except Exception:
+    pass
 
 from app.ai.base import BaseVisionAIProvider
 from app.ai.food101_knowledge import (
@@ -72,6 +81,13 @@ class Food101ModelManager:
             logger.info(f"Food-101 model '{target_model}' is already loaded in memory.")
             return
 
+        # Ensure progress bars are silenced before loading model weights to prevent Windows pipe flush errors
+        os.environ["TQDM_DISABLE"] = "1"
+        try:
+            transformers.utils.logging.disable_progress_bar()
+        except Exception:
+            pass
+
         logger.info(f"Loading Food-101 image classification model from Hugging Face: '{target_model}'...")
         start_t = time.perf_counter()
         try:
@@ -97,6 +113,12 @@ class Food101ModelManager:
 
     def classify_image_bytes(self, image_bytes: bytes, top_k: int = 3) -> List[TopFoodPrediction]:
         """Perform forward inference on sanitized image bytes and return top-k predictions."""
+        if not self.is_loaded and self._load_error is None:
+            try:
+                self.load_model(self.model_name)
+            except Exception as exc:
+                logger.warning(f"On-demand Food-101 model loading failed: {exc}")
+
         if not self.is_loaded:
             error_reason = self._load_error or "Model has not been initialized at application startup."
             logger.error(f"Inference rejected: Food-101 model is not loaded. Details: {error_reason}")

@@ -6,6 +6,7 @@ import Topbar from './components/common/Topbar';
 // Core Features
 import FoodAnalyzerView from './views/FoodAnalyzerView';
 import CookingAssistantView from './views/CookingAssistantView';
+import CookWithIngredientsView from './views/CookWithIngredientsView';
 import NutritionPlannerView from './views/NutritionPlannerView';
 import MealHistoryView from './views/MealHistoryView';
 
@@ -17,6 +18,8 @@ function AppContent() {
     switch (activeView) {
       case 'analyzer':
         return <FoodAnalyzerView setActiveView={setActiveView} />;
+      case 'pantry':
+        return <CookWithIngredientsView setActiveView={setActiveView} />;
       case 'cooking':
         return <CookingAssistantView setActiveView={setActiveView} initialTab="generator" />;
       case 'favorites':

@@ -288,3 +288,65 @@ async def test_recipe_provider_timeout_error(monkeypatch):
         assert response.status_code == 504
         body = response.json()
         assert body["error"]["code"] == "AI_TIMEOUT"
+
+
+@pytest.mark.asyncio
+async def test_recipe_generation_momos_with_red_chutney(monkeypatch):
+    """Verify momos recipe contains authentic ingredients/instructions and zero placeholder phrases."""
+    monkeypatch.setattr(settings, "AI_PROVIDER", "food101")
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        payload = {
+            "dish_name": "Momos with Red Chutney",
+            "ingredients": [
+                "Steamed flour dumpling wrappers (momos)",
+                "Finely minced seasoned vegetable filling (cabbage, carrots, onions)",
+                "Fiery red tomato-garlic chili dipping chutney",
+            ],
+            "servings": 2,
+            "max_cook_time_minutes": 30,
+        }
+        response = await client.post("/api/recipes/generate", json=payload)
+        assert response.status_code == 200
+        body = response.json()
+        recipes = body.get("recipes", [])
+        assert len(recipes) >= 1
+
+        # Check that recipes are authentic momos
+        assert any("momo" in r["title"].lower() for r in recipes)
+
+        # Check relevant ingredients
+        all_ingredients = " ".join(
+            ing["name"].lower() + " " + ing.get("notes", "").lower()
+            for rec in recipes
+            for ing in rec.get("ingredient_quantities", [])
+        )
+        assert "flour" in all_ingredients or "maida" in all_ingredients
+        assert "cabbage" in all_ingredients
+        assert "chili" in all_ingredients or "chilies" in all_ingredients or "chutney" in all_ingredients
+
+        # Check relevant preparation steps (steaming / pan-frying, pleating, red chutney)
+        all_steps = " ".join(
+            step.lower()
+            for rec in recipes
+            for step in rec.get("preparation_steps", [])
+        )
+        assert "steam" in all_steps
+        assert "pleat" in all_steps or "wrapper" in all_steps
+        assert "chutney" in all_steps
+
+        # Strictly verify complete absence of placeholder phrases
+        body_dump = str(body).lower()
+        forbidden_phrases = [
+            "primary momo",
+            "primary ",
+            "characteristic garnish",
+            "surface texture",
+            "accompanying base",
+            "side elements",
+            "rinse, pat dry, and slice into uniform portions",
+            "cook undisturbed for 10 minutes until golden",
+        ]
+        for phrase in forbidden_phrases:
+            assert phrase not in body_dump, f"Forbidden placeholder phrase found: '{phrase}'"
